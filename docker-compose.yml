@@ -1,0 +1,25 @@
+# docker-compose.yml
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:16.2-alpine3.19
+    container_name: blockchain_postgres
+    restart: always
+    environment:
+      POSTGRES_DB: blockchain_db
+      POSTGRES_USER: blockchain_user
+      POSTGRES_PASSWORD: blockchain_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - blockchain_network
+
+volumes:
+  postgres_data:
+
+networks:
+  blockchain_network:
+    driver: bridge
