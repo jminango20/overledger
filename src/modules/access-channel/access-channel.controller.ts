@@ -24,6 +24,8 @@ import {
   DeactivateChannelResponseDto,
   ChannelNameDto,
   ChannelInfoResponseDto,
+  NumberResponseDto,
+  NumberMembersInChannelResponseDto,
 } from './dto';
 import { PrivateKey } from '../../common/decorators/wallet.decorator';
 
@@ -153,7 +155,24 @@ export class AccessChannelController {
   }
 
   /**
-   * Obter informações de um canal
+   * Get the number of channels
+   */
+  @Get('channels/count')
+  @ApiOperation({
+    summary: 'Obter número de canais',
+    description: 'Retorna o número total de canais na blockchain',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Informações do número de canais retornadas com sucesso',
+    type: NumberResponseDto,
+  })
+  async getChannelCount(): Promise<NumberResponseDto> {
+    return await this.accessChannelService.getChannelCount();
+  }
+
+  /**
+   * Get channel info
    */
   @Get('channels/:channelName')
   @ApiOperation({
@@ -183,5 +202,41 @@ export class AccessChannelController {
   ): Promise<ChannelInfoResponseDto> {
     const channelNameDto: ChannelNameDto = { channelName };
     return await this.accessChannelService.getChannelInfo(channelNameDto);
+  }
+
+  /**
+   * Get the number of members in a channel
+   */
+  @Get('channels/:channelName/members/count')
+  @ApiOperation({
+    summary: 'Obter número de membros de um canal',
+    description:
+      'Retorna informações detalhadas sobre o número de membros de um canal específico',
+  })
+  @ApiParam({
+    name: 'channelName',
+    description: 'Nome do canal',
+    example: 'my-awesome-channel',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Informações do canal retornadas com sucesso',
+    type: NumberMembersInChannelResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Nome do canal inválido',
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Canal não encontrado',
+  })
+  async getChannelMemberCount(
+    @Param('channelName') channelName: string,
+  ): Promise<NumberMembersInChannelResponseDto> {
+    const channelNameDto: ChannelNameDto = { channelName };
+    return await this.accessChannelService.getChannelMemberCount(
+      channelNameDto,
+    );
   }
 }

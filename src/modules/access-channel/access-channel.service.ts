@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { ethers } from 'ethers';
+import { ethers, N } from 'ethers';
 import {
   CreateChannelDto,
   CreateChannelResponseDto,
@@ -9,6 +9,8 @@ import {
   DeactivateChannelResponseDto,
   ChannelNameDto,
   ChannelInfoResponseDto,
+  NumberResponseDto,
+  NumberMembersInChannelResponseDto,
 } from './dto';
 import { BlockchainProvider } from '../../blockchain/providers/blockchain.provider';
 import { ContractErrorHandler } from '../../common/utils/contract-error.handler';
@@ -99,24 +101,8 @@ export class AccessChannelService {
     try {
       const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
 
-      // Obter contrato com a chave privada do usuário
-      const addressDiscoveryContract = this.blockchainProvider.getContract(
-        'AddressDiscovery',
-        tempPrivateKey,
-      );
-
-      const contractNameBytes32 = this.blockchainProvider.stringToBytes32(
-        'ACCESS_CHANNEL_MANAGER',
-      );
-
-      const contractAddress =
-        await addressDiscoveryContract.getContractAddress(contractNameBytes32);
-
-      const contract = this.blockchainProvider.getContract(
-        'AccessChannelManager',
-        tempPrivateKey,
-        contractAddress,
-      );
+      const contract =
+        await this.getAccessChannelManagerContract(tempPrivateKey);
 
       const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
         channelNameDto.channelName,
@@ -135,6 +121,95 @@ export class AccessChannelService {
         creator: result[2],
         memberCount: Number(result[3]),
         createdAt: Number(result[4]),
+      };
+    } catch (error) {
+      this.logger.error(
+        `Erro ao buscar informações do canal: ${error.message}`,
+        error.stack,
+      );
+
+      const customError = ContractErrorHandler.parseContractError(error);
+
+      if (customError) {
+        throw customError;
+      }
+
+      // Fallback para erros genéricos
+      if (error.code === 'CALL_EXCEPTION') {
+        throw new BadRequestException(
+          'Erro na chamada do contrato. Verifique se o canal existe.',
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Get the number of channels
+   */
+  async getChannelCount(): Promise<NumberResponseDto> {
+    this.logger.log('Buscando o número de canais');
+
+    try {
+      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
+
+      const contract =
+        await this.getAccessChannelManagerContract(tempPrivateKey);
+
+      const result = await contract.getChannelCount();
+
+      return {
+        number: Number(result),
+      };
+    } catch (error) {
+      this.logger.error(
+        `Erro ao buscar informações do canal: ${error.message}`,
+        error.stack,
+      );
+
+      const customError = ContractErrorHandler.parseContractError(error);
+
+      if (customError) {
+        throw customError;
+      }
+
+      // Fallback para erros genéricos
+      if (error.code === 'CALL_EXCEPTION') {
+        throw new BadRequestException(
+          'Erro na chamada do contrato. Verifique se o canal existe.',
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Get the number of members in channel
+   */
+  async getChannelMemberCount(
+    channelNameDto: ChannelNameDto,
+  ): Promise<NumberMembersInChannelResponseDto> {
+    this.logger.log(
+      `Buscando o número de membros do canal ${channelNameDto.channelName}`,
+    );
+
+    try {
+      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
+
+      const contract =
+        await this.getAccessChannelManagerContract(tempPrivateKey);
+
+      const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
+        channelNameDto.channelName,
+      );
+
+      const result = await contract.getChannelMemberCount(channelNameBytes32);
+
+      return {
+        channelName: channelNameDto.channelName,
+        memberCount: Number(result),
       };
     } catch (error) {
       this.logger.error(

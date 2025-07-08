@@ -152,3 +152,24 @@ export class ChannelInfoResponseDto {
   })
   channelName: string;
 }
+
+export class NumberResponseDto {
+  @ApiProperty({
+    description: 'Número de canais',
+    example: 10,
+  })
+  number: number;
+}
+
+export class NumberMembersInChannelResponseDto {
+  @ApiProperty({
+    description: 'Nome do canal',
+    example: 'my-awesome-channel',
+  })
+  channelName: string;
+  @ApiProperty({
+    description: 'Número de membros no canal',
+    example: 10,
+  })
+  memberCount: number;
+}

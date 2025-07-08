@@ -7,4 +7,6 @@ export {
   DeactivateChannelResponseDto,
   ChannelNameDto,
   ChannelInfoResponseDto,
+  NumberResponseDto,
+  NumberMembersInChannelResponseDto,
 } from './access-chanel.dto';
