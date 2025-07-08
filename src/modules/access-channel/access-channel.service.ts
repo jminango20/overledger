@@ -11,6 +11,8 @@ import {
   ChannelInfoResponseDto,
   NumberResponseDto,
   NumberMembersInChannelResponseDto,
+  ChannelMemberDto,
+  ChannelMemberResponseDto,
 } from './dto';
 import { BlockchainProvider } from '../../blockchain/providers/blockchain.provider';
 import { ContractErrorHandler } from '../../common/utils/contract-error.handler';
@@ -84,6 +86,58 @@ export class AccessChannelService {
       async (contract, channelNameBytes32) => {
         const tx = await contract.desactivateChannel(channelNameBytes32);
         return { tx, channelName: deactivateChannelDto.channelName };
+      },
+    );
+  }
+
+  /**
+   * Add a member to a channel
+   */
+  async addChannelMember(
+    addMemberDto: ChannelMemberDto,
+    privateKey: string,
+  ): Promise<ChannelMemberResponseDto> {
+    return this.executeMemberChannelOperation(
+      'addChannelMember',
+      addMemberDto.channelName,
+      addMemberDto.addressMember,
+      privateKey,
+      async (contract, channelNameBytes32) => {
+        const tx = await contract.addChannelMember(
+          channelNameBytes32,
+          addMemberDto.addressMember,
+        );
+        return {
+          tx,
+          channelName: addMemberDto.channelName,
+          addressMember: addMemberDto.addressMember,
+        };
+      },
+    );
+  }
+
+  /**
+   * Remove a member to a channel
+   */
+  async removeChannelMember(
+    removeMemberDto: ChannelMemberDto,
+    privateKey: string,
+  ): Promise<ChannelMemberResponseDto> {
+    return this.executeMemberChannelOperation(
+      'removeChannelMember',
+      removeMemberDto.channelName,
+      removeMemberDto.addressMember,
+      privateKey,
+      async (contract, channelNameBytes32) => {
+        const tx = await contract.removeChannelMember(
+          channelNameBytes32,
+          removeMemberDto.addressMember,
+        );
+        return {
+          tx,
+          channelName: removeMemberDto.channelName,
+          addressMember: removeMemberDto.addressMember,
+        };
       },
     );
   }
@@ -269,6 +323,76 @@ export class AccessChannelService {
       const { tx, channelName: responseChannelName } = await operation(
         contract,
         channelNameBytes32,
+      );
+
+      this.logger.log(`Transação enviada: ${tx.hash}`);
+
+      const receipt = await tx.wait();
+      this.logger.log(`Transação confirmada no bloco: ${receipt?.blockNumber}`);
+
+      const duration = Date.now() - startTime;
+      this.logger.log(
+        `[${operationName}] Concluído em ${duration}ms - TxHash: ${tx.hash}`,
+      );
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        channelName: responseChannelName,
+        blockNumber: receipt?.blockNumber,
+        gasUsed: receipt?.gasUsed?.toString(),
+      } as T;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.error(
+        `[${operationName}] Falhou após ${duration}ms:`,
+        error.message,
+      );
+      return this.handleContractError(error, operationName, channelName);
+    }
+  }
+
+  /**
+   * Execute generic channel member operation
+   */
+  private async executeMemberChannelOperation<
+    T extends {
+      success: boolean;
+      transactionHash: string;
+      channelName: string;
+      addressMember: string;
+      blockNumber?: number;
+      gasUsed?: string;
+    },
+  >(
+    operationName: string,
+    channelName: string,
+    addressMember: string,
+    privateKey: string,
+    operation: (
+      contract: ethers.Contract,
+      channelNameBytes32: string,
+      addressMember: string,
+    ) => Promise<{
+      tx: ethers.ContractTransactionResponse;
+      channelName: string;
+    }>,
+  ): Promise<T> {
+    const startTime = Date.now();
+    this.logger.log(
+      `[${operationName}] Iniciando para canal: ${channelName} e membro: ${addressMember}`,
+    );
+
+    try {
+      const contract = await this.getAccessChannelManagerContract(privateKey);
+
+      const channelNameBytes32 =
+        this.blockchainProvider.stringToBytes32(channelName);
+
+      const { tx, channelName: responseChannelName } = await operation(
+        contract,
+        channelNameBytes32,
+        addressMember,
       );
 
       this.logger.log(`Transação enviada: ${tx.hash}`);

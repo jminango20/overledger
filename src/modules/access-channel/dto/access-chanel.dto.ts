@@ -1,5 +1,11 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, Length, Matches } from 'class-validator';
+import {
+  IsString,
+  IsNotEmpty,
+  Length,
+  Matches,
+  IsEthereumAddress,
+} from 'class-validator';
 
 // Constants for better maintainability and performance
 const CHANNEL_NAME_REGEX = /^[a-zA-Z0-9_-]+$/;
@@ -28,6 +34,19 @@ function ChannelNameValidation() {
       target,
       propertyKey,
     );
+  };
+}
+
+function AddressValidation() {
+  return function (target: any, propertyKey: string) {
+    ApiProperty({
+      description: 'Endereço Ethereum',
+      example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
+    })(target, propertyKey);
+
+    IsString()(target, propertyKey);
+    IsNotEmpty()(target, propertyKey);
+    IsEthereumAddress()(target, propertyKey);
   };
 }
 
@@ -80,6 +99,14 @@ abstract class BaseChannelResponseDto implements BaseTransactionResponse {
     required: false,
   })
   gasUsed?: string;
+}
+
+// Base class for channel name input
+abstract class BaseChannelMemberDto {
+  @ChannelNameValidation()
+  channelName: string;
+  @AddressValidation()
+  addressMember: string;
 }
 
 // Specific DTOs extending base classes
@@ -172,4 +199,14 @@ export class NumberMembersInChannelResponseDto {
     example: 10,
   })
   memberCount: number;
+}
+
+export class ChannelMemberDto extends BaseChannelMemberDto {}
+
+export class ChannelMemberResponseDto extends BaseChannelResponseDto {
+  @ApiProperty({
+    description: 'Endereço do novo membro',
+    example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
+  })
+  addressMember: string;
 }

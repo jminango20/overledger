@@ -9,4 +9,6 @@ export {
   ChannelInfoResponseDto,
   NumberResponseDto,
   NumberMembersInChannelResponseDto,
+  ChannelMemberDto,
+  ChannelMemberResponseDto,
 } from './access-chanel.dto';

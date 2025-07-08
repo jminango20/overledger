@@ -26,6 +26,8 @@ import {
   ChannelInfoResponseDto,
   NumberResponseDto,
   NumberMembersInChannelResponseDto,
+  ChannelMemberDto,
+  ChannelMemberResponseDto,
 } from './dto';
 import { PrivateKey } from '../../common/decorators/wallet.decorator';
 
@@ -150,6 +152,86 @@ export class AccessChannelController {
   ): Promise<DeactivateChannelResponseDto> {
     return await this.accessChannelService.deactivateChannel(
       deactivateChannelDto,
+      privateKey,
+    );
+  }
+
+  /**
+   * Add a member to a channel
+   */
+  @Post('channels/addMember')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Adicionar membro a um canal',
+    description: 'Adiciona um membro a um canal de acesso na blockchain.',
+  })
+  @ApiHeader({
+    name: 'x-private-key',
+    description: 'Chave privada da wallet (64 caracteres hexadecimais)',
+    required: true,
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Membro adicionado com sucesso',
+    type: ChannelMemberResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos ou erro na transação',
+    example: {
+      statusCode: 400,
+      message: 'Nome do canal inválido ou endereço inválido',
+      error: 'Bad Request',
+    },
+  })
+  async addChannelMember(
+    @Body() addMemberDto: ChannelMemberDto,
+    @PrivateKey() privateKey: string,
+  ): Promise<ChannelMemberResponseDto> {
+    return await this.accessChannelService.addChannelMember(
+      addMemberDto,
+      privateKey,
+    );
+  }
+
+  /**
+   * Remove a member to a channel
+   */
+  @Post('channels/removeMember')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Remover membro a um canal',
+    description: 'Remove um membro a um canal de acesso na blockchain.',
+  })
+  @ApiHeader({
+    name: 'x-private-key',
+    description: 'Chave privada da wallet (64 caracteres hexadecimais)',
+    required: true,
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  @ApiResponse({
+    status: 201,
+    description: 'Membro removido com sucesso',
+    type: ChannelMemberResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos ou erro na transação',
+    example: {
+      statusCode: 400,
+      message: 'Nome do canal inválido ou endereço inválido',
+      error: 'Bad Request',
+    },
+  })
+  async removeChannelMember(
+    @Body() removeMemberDto: ChannelMemberDto,
+    @PrivateKey() privateKey: string,
+  ): Promise<ChannelMemberResponseDto> {
+    return await this.accessChannelService.removeChannelMember(
+      removeMemberDto,
       privateKey,
     );
   }
