@@ -1,7 +1,9 @@
 import AddressDiscoveryABI from './AddressDiscovery.json';
+import AccessChannelManagerABI from './AccessChannelManager.json';
 
 export const ABIs = {
   AddressDiscovery: AddressDiscoveryABI,
+  AccessChannelManager: AccessChannelManagerABI,
 } as const;
 
 export type ABIName = keyof typeof ABIs;
