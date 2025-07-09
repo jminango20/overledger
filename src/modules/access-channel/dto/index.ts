@@ -6,11 +6,14 @@ export {
   DeactivateChannelDto,
   // Member Management
   ChannelMemberDto,
-  AddMembersDto,
+  ChannelMembersDto,
   CheckMemberDto,
+  CheckMultipleMembersDto,
   // Pagination
   PaginationDto,
   GetMembersDto,
+  MembersResponseDto,
+  ChannelsResponseDto,
   // Responses
   CreateChannelResponseDto,
   ActivateChannelResponseDto,
@@ -19,5 +22,6 @@ export {
   NumberResponseDto,
   NumberMembersInChannelResponseDto,
   ChannelMemberResponseDto,
-  AddChannelMembersResponseDto,
+  ChannelMembersResponseDto,
+  MembershipCheckResponseDto,
 } from './access-chanel.dto';

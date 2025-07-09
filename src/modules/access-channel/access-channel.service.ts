@@ -13,6 +13,14 @@ import {
   NumberMembersInChannelResponseDto,
   ChannelMemberDto,
   ChannelMemberResponseDto,
+  ChannelMembersDto,
+  ChannelMembersResponseDto,
+  CheckMemberDto,
+  MembershipCheckResponseDto,
+  GetMembersDto,
+  MembersResponseDto,
+  PaginationDto,
+  ChannelsResponseDto,
 } from './dto';
 import { BlockchainProvider } from '../../blockchain/providers/blockchain.provider';
 import { ContractErrorHandler } from '../../common/utils/contract-error.handler';
@@ -102,10 +110,10 @@ export class AccessChannelService {
       addMemberDto.channelName,
       addMemberDto.addressMember,
       privateKey,
-      async (contract, channelNameBytes32) => {
+      async (contract, channelNameBytes32, addressMember) => {
         const tx = await contract.addChannelMember(
           channelNameBytes32,
-          addMemberDto.addressMember,
+          addressMember,
         );
         return {
           tx,
@@ -128,10 +136,10 @@ export class AccessChannelService {
       removeMemberDto.channelName,
       removeMemberDto.addressMember,
       privateKey,
-      async (contract, channelNameBytes32) => {
+      async (contract, channelNameBytes32, addressMember) => {
         const tx = await contract.removeChannelMember(
           channelNameBytes32,
-          removeMemberDto.addressMember,
+          addressMember,
         );
         return {
           tx,
@@ -140,6 +148,156 @@ export class AccessChannelService {
         };
       },
     );
+  }
+
+  /**
+   * Add multiple members to a channel
+   */
+  async addChannelMembers(
+    addMembersDto: ChannelMembersDto,
+    privateKey: string,
+  ): Promise<ChannelMembersResponseDto> {
+    if (!addMembersDto.memberAddresses?.length) {
+      throw new BadRequestException('Lista de membros é obrigatória');
+    }
+
+    return this.executeBatchMemberOperation(
+      'addChannelMembers',
+      addMembersDto.channelName,
+      addMembersDto.memberAddresses,
+      privateKey,
+      async (contract, channelNameBytes32, memberAddresses) => {
+        const tx = await contract.addChannelMembers(
+          channelNameBytes32,
+          memberAddresses,
+        );
+        return {
+          tx,
+          channelName: addMembersDto.channelName,
+          memberAddresses,
+        };
+      },
+    );
+  }
+
+  /**
+   * Remove multiple members from a channel
+   */
+  async removeChannelMembers(
+    removeMembersDto: ChannelMembersDto,
+    privateKey: string,
+  ): Promise<ChannelMembersResponseDto> {
+    if (!removeMembersDto.memberAddresses?.length) {
+      throw new BadRequestException('Lista de membros é obrigatória');
+    }
+
+    return this.executeBatchMemberOperation(
+      'removeChannelMembers',
+      removeMembersDto.channelName,
+      removeMembersDto.memberAddresses,
+      privateKey,
+      async (contract, channelNameBytes32, memberAddresses) => {
+        const tx = await contract.removeChannelMembers(
+          channelNameBytes32,
+          memberAddresses,
+        );
+        return {
+          tx,
+          channelName: removeMembersDto.channelName,
+          memberAddresses,
+        };
+      },
+    );
+  }
+
+  /**
+   * Check if address is channel member
+   */
+  async isChannelMember(
+    checkMemberDto: CheckMemberDto,
+  ): Promise<MembershipCheckResponseDto> {
+    this.logger.log(
+      `Verificando se ${checkMemberDto.memberAddress} é membro do canal ${checkMemberDto.channelName}`,
+    );
+
+    try {
+      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
+      const contract =
+        await this.getAccessChannelManagerContract(tempPrivateKey);
+
+      const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
+        checkMemberDto.channelName,
+      );
+
+      const isMember = await contract.isChannelMember(
+        channelNameBytes32,
+        checkMemberDto.memberAddress,
+      );
+
+      return {
+        isMember,
+        channelName: checkMemberDto.channelName,
+        memberAddress: checkMemberDto.memberAddress,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Erro ao verificar membresía: ${error.message}`,
+        error.stack,
+      );
+
+      const customError = ContractErrorHandler.parseContractError(error);
+      if (customError) {
+        throw customError;
+      }
+
+      if (error.code === 'CALL_EXCEPTION') {
+        throw new BadRequestException(
+          'Erro na chamada do contrato. Verifique se o canal existe e está ativo.',
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Check multiple addresses membership
+   */
+  async areChannelMembers(
+    channelName: string,
+    memberAddresses: string[],
+  ): Promise<boolean[]> {
+    this.logger.log(
+      `Verificando membresía de ${memberAddresses.length} endereços no canal ${channelName}`,
+    );
+
+    try {
+      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
+      const contract =
+        await this.getAccessChannelManagerContract(tempPrivateKey);
+
+      const channelNameBytes32 =
+        this.blockchainProvider.stringToBytes32(channelName);
+
+      const results = await contract.areChannelMembers(
+        channelNameBytes32,
+        memberAddresses,
+      );
+
+      return results;
+    } catch (error) {
+      this.logger.error(
+        `Erro ao verificar membresías múltiplas: ${error.message}`,
+        error.stack,
+      );
+
+      const customError = ContractErrorHandler.parseContractError(error);
+      if (customError) {
+        throw customError;
+      }
+
+      throw error;
+    }
   }
 
   /**
@@ -289,6 +447,100 @@ export class AccessChannelService {
   }
 
   /**
+   * Get channel members with pagination
+   */
+  async getChannelMembersPaginated(
+    getMembersDto: GetMembersDto,
+  ): Promise<MembersResponseDto> {
+    this.logger.log(
+      `Buscando membros do canal ${getMembersDto.channelName} - Página: ${getMembersDto.page}, Tamanho: ${getMembersDto.pageSize}`,
+    );
+
+    try {
+      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
+      const contract =
+        await this.getAccessChannelManagerContract(tempPrivateKey);
+
+      const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
+        getMembersDto.channelName,
+      );
+
+      const result = await contract.getChannelMembersPaginated(
+        channelNameBytes32,
+        getMembersDto.page || 1,
+        getMembersDto.pageSize || 50,
+      );
+
+      return {
+        members: result.members,
+        totalMembers: Number(result.totalMembers),
+        totalPages: Number(result.totalPages),
+        hasNextPage: result.hasNextPage,
+        currentPage: getMembersDto.page || 1,
+        channelName: getMembersDto.channelName,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Erro ao buscar membros paginados: ${error.message}`,
+        error.stack,
+      );
+
+      const customError = ContractErrorHandler.parseContractError(error);
+      if (customError) {
+        throw customError;
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Get all channels with pagination
+   */
+  async getAllChannelsPaginated(
+    paginationDto: PaginationDto,
+  ): Promise<ChannelsResponseDto> {
+    this.logger.log(
+      `Buscando todos os canais - Página: ${paginationDto.page}, Tamanho: ${paginationDto.pageSize}`,
+    );
+
+    try {
+      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
+      const contract =
+        await this.getAccessChannelManagerContract(tempPrivateKey);
+
+      const result = await contract.getAllChannelsPaginated(
+        paginationDto.page || 1,
+        paginationDto.pageSize || 50,
+      );
+
+      const channelNames = result.channels.map((channelBytes32: string) => {
+        return channelBytes32;
+      });
+
+      return {
+        channels: channelNames,
+        totalChannels: Number(result.totalChannels),
+        totalPages: Number(result.totalPages),
+        hasNextPage: result.hasNextPage,
+        currentPage: paginationDto.page || 1,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Erro ao buscar canais paginados: ${error.message}`,
+        error.stack,
+      );
+
+      const customError = ContractErrorHandler.parseContractError(error);
+      if (customError) {
+        throw customError;
+      }
+
+      throw error;
+    }
+  }
+
+  /**
    * Execute generic channel operation
    */
   private async executeChannelOperation<
@@ -376,6 +628,7 @@ export class AccessChannelService {
     ) => Promise<{
       tx: ethers.ContractTransactionResponse;
       channelName: string;
+      addressMember: string;
     }>,
   ): Promise<T> {
     const startTime = Date.now();
@@ -409,6 +662,81 @@ export class AccessChannelService {
         success: true,
         transactionHash: tx.hash,
         channelName: responseChannelName,
+        addressMember: addressMember,
+        blockNumber: receipt?.blockNumber,
+        gasUsed: receipt?.gasUsed?.toString(),
+      } as T;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.error(
+        `[${operationName}] Falhou após ${duration}ms:`,
+        error.message,
+      );
+      return this.handleContractError(error, operationName, channelName);
+    }
+  }
+
+  /**
+   * Execute batch member operation
+   */
+  private async executeBatchMemberOperation<
+    T extends {
+      success: boolean;
+      transactionHash: string;
+      channelName: string;
+      addressMembers: string[];
+      addressCount?: number;
+      blockNumber?: number;
+      gasUsed?: string;
+    },
+  >(
+    operationName: string,
+    channelName: string,
+    memberAddresses: string[],
+    privateKey: string,
+    operation: (
+      contract: ethers.Contract,
+      channelNameBytes32: string,
+      memberAddresses: string[],
+    ) => Promise<{
+      tx: ethers.ContractTransactionResponse;
+      channelName: string;
+      memberAddresses: string[];
+    }>,
+  ): Promise<T> {
+    const startTime = Date.now();
+    this.logger.log(
+      `[${operationName}] Iniciando para canal: ${channelName} com ${memberAddresses.length} membros`,
+    );
+
+    try {
+      const contract = await this.getAccessChannelManagerContract(privateKey);
+
+      const channelNameBytes32 =
+        this.blockchainProvider.stringToBytes32(channelName);
+
+      const {
+        tx,
+        channelName: responseChannelName,
+        memberAddresses: responseMembers,
+      } = await operation(contract, channelNameBytes32, memberAddresses);
+
+      this.logger.log(`Transação enviada: ${tx.hash}`);
+
+      const receipt = await tx.wait();
+      this.logger.log(`Transação confirmada no bloco: ${receipt?.blockNumber}`);
+
+      const duration = Date.now() - startTime;
+      this.logger.log(
+        `[${operationName}] Concluído em ${duration}ms - TxHash: ${tx.hash}`,
+      );
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        channelName: responseChannelName,
+        addressMembers: responseMembers,
+        addressCount: responseMembers.length,
         blockNumber: receipt?.blockNumber,
         gasUsed: receipt?.gasUsed?.toString(),
       } as T;
@@ -453,12 +781,6 @@ export class AccessChannelService {
       }
 
       contractAddress = discoveredAddress;
-
-      this.contractAddressCache.set(cacheKey, contractAddress as string);
-
-      this.logger.debug(
-        `Endereço AccessChannelManager cached: ${contractAddress}`,
-      );
 
       this.contractAddressCache.set(cacheKey, contractAddress as string);
       this.cacheTimestamps.set(cacheKey, now);

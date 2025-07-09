@@ -113,7 +113,15 @@ export class BlockchainProvider implements OnModuleInit {
   }
 
   bytes32ToString(bytes32: string): string {
-    return ethers.toUtf8String(bytes32).replace(/\0/g, '');
+    try {
+      return ethers.decodeBytes32String(bytes32);
+    } catch {
+      return bytes32;
+    }
+  }
+
+  bytesToHex(bytes32: string): string {
+    return bytes32;
   }
 
   /**

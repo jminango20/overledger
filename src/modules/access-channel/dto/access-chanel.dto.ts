@@ -13,6 +13,7 @@ import {
   Min,
   Max,
 } from 'class-validator';
+import { Transform, Type } from 'class-transformer';
 
 // Constants for better maintainability and performance
 const CHANNEL_NAME_REGEX = /^[a-zA-Z0-9_-]+$/;
@@ -119,73 +120,11 @@ abstract class BaseChannelMemberDto {
 // Specific DTOs extending base classes
 export class CreateChannelDto extends BaseChannelDto {}
 
-export class CreateChannelResponseDto extends BaseChannelResponseDto {
-  @ApiProperty({
-    description: 'Nome do canal criado',
-    example: 'my-awesome-channel',
-  })
-  declare channelName: string;
-}
-
 export class ActivateChannelDto extends BaseChannelDto {}
-
-export class ActivateChannelResponseDto extends BaseChannelResponseDto {
-  @ApiProperty({
-    description: 'Canal ativado',
-    example: 'my-awesome-channel',
-  })
-  declare channelName: string;
-}
 
 export class DeactivateChannelDto extends BaseChannelDto {}
 
-export class DeactivateChannelResponseDto extends BaseChannelResponseDto {
-  @ApiProperty({
-    description: 'Canal desativado',
-    example: 'my-awesome-channel',
-  })
-  declare channelName: string;
-}
-
 export class ChannelNameDto extends BaseChannelDto {}
-
-export class ChannelInfoResponseDto {
-  @ApiProperty({
-    description: 'Se o canal existe',
-    example: true,
-  })
-  exists: boolean;
-
-  @ApiProperty({
-    description: 'Se o canal está ativo',
-    example: true,
-  })
-  isActive: boolean;
-
-  @ApiProperty({
-    description: 'Endereço do criador do canal',
-    example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
-  })
-  creator: string;
-
-  @ApiProperty({
-    description: 'Número de membros no canal',
-    example: 25,
-  })
-  memberCount: number;
-
-  @ApiProperty({
-    description: 'Timestamp de criação do canal (Unix timestamp)',
-    example: 1640995200,
-  })
-  createdAt: number;
-
-  @ApiProperty({
-    description: 'Nome do canal',
-    example: 'my-awesome-channel',
-  })
-  channelName: string;
-}
 
 export class NumberResponseDto {
   @ApiProperty({
@@ -195,30 +134,9 @@ export class NumberResponseDto {
   number: number;
 }
 
-export class NumberMembersInChannelResponseDto {
-  @ApiProperty({
-    description: 'Nome do canal',
-    example: 'my-awesome-channel',
-  })
-  channelName: string;
-  @ApiProperty({
-    description: 'Número de membros no canal',
-    example: 10,
-  })
-  memberCount: number;
-}
-
 export class ChannelMemberDto extends BaseChannelMemberDto {}
 
-export class ChannelMemberResponseDto extends BaseChannelResponseDto {
-  @ApiProperty({
-    description: 'Endereço do novo membro',
-    example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
-  })
-  addressMember: string;
-}
-
-export class AddMembersDto {
+export class ChannelMembersDto {
   @ApiProperty({
     description: 'Nome do canal',
     example: 'my-awesome-channel',
@@ -265,51 +183,110 @@ export class CheckMemberDto {
   memberAddress: string;
 }
 
-// =============================================================
-//                    PAGINATION DTOs
-// =============================================================
-
-export class PaginationDto {
+export class CheckMultipleMembersDto {
   @ApiProperty({
-    description: 'Número da página (iniciando em 1)',
-    example: 1,
-    default: 1,
-    minimum: 1,
+    description: 'Array de endereços dos membros a serem verificados',
+    example: [
+      '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
+      '0x8ba1f109551bD432803012645Hac136c0c8454A',
+      '0x1234567890abcdef1234567890abcdef12345678',
+    ],
+    type: [String],
+    minItems: 1,
+    maxItems: 100,
   })
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  page?: number = 1;
-
-  @ApiProperty({
-    description: 'Número de itens por página',
-    example: 50,
-    default: 50,
-    minimum: 1,
-    maximum: 200,
-  })
-  @IsOptional()
-  @IsNumber()
-  @Min(1)
-  @Max(200)
-  pageSize?: number = 50;
-}
-
-export class GetMembersDto extends PaginationDto {
-  @ApiProperty({
-    description: 'Nome do canal',
-    example: 'my-awesome-channel',
-  })
-  @IsString()
-  @IsNotEmpty()
-  @Length(1, 50)
-  channelName: string;
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @IsEthereumAddress({ each: true })
+  memberAddresses: string[];
 }
 
 // =============================================================
 //                    RESPONSES
 // =============================================================
-export class AddChannelMembersResponseDto extends BaseChannelResponseDto {
+
+export class ChannelInfoResponseDto {
+  @ApiProperty({
+    description: 'Se o canal existe',
+    example: true,
+  })
+  exists: boolean;
+
+  @ApiProperty({
+    description: 'Se o canal está ativo',
+    example: true,
+  })
+  isActive: boolean;
+
+  @ApiProperty({
+    description: 'Endereço do criador do canal',
+    example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
+  })
+  creator: string;
+
+  @ApiProperty({
+    description: 'Número de membros no canal',
+    example: 25,
+  })
+  memberCount: number;
+
+  @ApiProperty({
+    description: 'Timestamp de criação do canal (Unix timestamp)',
+    example: 1640995200,
+  })
+  createdAt: number;
+
+  @ApiProperty({
+    description: 'Nome do canal',
+    example: 'my-awesome-channel',
+  })
+  channelName: string;
+}
+
+export class DeactivateChannelResponseDto extends BaseChannelResponseDto {
+  @ApiProperty({
+    description: 'Canal desativado',
+    example: 'my-awesome-channel',
+  })
+  declare channelName: string;
+}
+export class ActivateChannelResponseDto extends BaseChannelResponseDto {
+  @ApiProperty({
+    description: 'Canal ativado',
+    example: 'my-awesome-channel',
+  })
+  declare channelName: string;
+}
+export class CreateChannelResponseDto extends BaseChannelResponseDto {
+  @ApiProperty({
+    description: 'Nome do canal criado',
+    example: 'my-awesome-channel',
+  })
+  declare channelName: string;
+}
+export class NumberMembersInChannelResponseDto {
+  @ApiProperty({
+    description: 'Nome do canal',
+    example: 'my-awesome-channel',
+  })
+  channelName: string;
+  @ApiProperty({
+    description: 'Número de membros no canal',
+    example: 10,
+  })
+  memberCount: number;
+}
+export class ChannelMemberResponseDto extends BaseChannelResponseDto {
+  @ApiProperty({
+    description: 'Endereço do novo membro',
+    example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
+    type: String,
+  })
+  addressMember: string;
+}
+
+export class ChannelMembersResponseDto extends BaseChannelResponseDto {
   @ApiProperty({
     description: 'Lista de endereços dos novos membros',
     example: [
@@ -321,10 +298,10 @@ export class AddChannelMembersResponseDto extends BaseChannelResponseDto {
   addressMembers: string[];
 
   @ApiProperty({
-    description: 'Número de membros adicionados com sucesso',
+    description: 'Número de endereços processados na transação',
     example: 2,
   })
-  addedCount: number;
+  addressCount: number;
 }
 
 export class MembersResponseDto {
@@ -420,4 +397,63 @@ export class MembershipCheckResponseDto {
     example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
   })
   memberAddress: string;
+}
+
+// =============================================================
+//                    PAGINATION DTOs
+// =============================================================
+
+export class PaginationDto {
+  @ApiProperty({
+    description: 'Número da página (iniciando em 1)',
+    example: 1,
+    default: 1,
+    minimum: 1,
+    required: false,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') {
+      return 1;
+    }
+    const num = Number(value);
+    return isNaN(num) ? 1 : num;
+  })
+  @IsNumber()
+  @Min(1)
+  page: number = 1;
+
+  @ApiProperty({
+    description: 'Número de itens por página',
+    example: 50,
+    default: 50,
+    minimum: 1,
+    maximum: 200,
+    required: false,
+  })
+  @IsOptional()
+  @Type(() => Number)
+  @Transform(({ value }) => {
+    if (value === undefined || value === null || value === '') {
+      return 50;
+    }
+    const num = Number(value);
+    return isNaN(num) ? 50 : num;
+  })
+  @IsNumber()
+  @Min(1)
+  @Max(200)
+  pageSize: number = 50;
+}
+
+export class GetMembersDto extends PaginationDto {
+  @ApiProperty({
+    description: 'Nome do canal',
+    example: 'my-awesome-channel',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @Length(1, 50)
+  channelName: string;
 }
