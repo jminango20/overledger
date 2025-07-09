@@ -1,14 +1,23 @@
 export {
+  // Channel Management
   CreateChannelDto,
-  CreateChannelResponseDto,
-  ActivateChannelDto,
-  ActivateChannelResponseDto,
-  DeactivateChannelDto,
-  DeactivateChannelResponseDto,
   ChannelNameDto,
+  ActivateChannelDto,
+  DeactivateChannelDto,
+  // Member Management
+  ChannelMemberDto,
+  AddMembersDto,
+  CheckMemberDto,
+  // Pagination
+  PaginationDto,
+  GetMembersDto,
+  // Responses
+  CreateChannelResponseDto,
+  ActivateChannelResponseDto,
+  DeactivateChannelResponseDto,
   ChannelInfoResponseDto,
   NumberResponseDto,
   NumberMembersInChannelResponseDto,
-  ChannelMemberDto,
   ChannelMemberResponseDto,
+  AddChannelMembersResponseDto,
 } from './access-chanel.dto';

@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { ethers, N } from 'ethers';
+import { ethers } from 'ethers';
 import {
   CreateChannelDto,
   CreateChannelResponseDto,

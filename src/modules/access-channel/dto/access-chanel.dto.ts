@@ -5,6 +5,13 @@ import {
   Length,
   Matches,
   IsEthereumAddress,
+  IsArray,
+  ArrayMinSize,
+  ArrayMaxSize,
+  IsOptional,
+  IsNumber,
+  Min,
+  Max,
 } from 'class-validator';
 
 // Constants for better maintainability and performance
@@ -209,4 +216,208 @@ export class ChannelMemberResponseDto extends BaseChannelResponseDto {
     example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
   })
   addressMember: string;
+}
+
+export class AddMembersDto {
+  @ApiProperty({
+    description: 'Nome do canal',
+    example: 'my-awesome-channel',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @Length(1, 50)
+  channelName: string;
+
+  @ApiProperty({
+    description: 'Array de endereços dos membros a serem adicionados',
+    example: [
+      '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
+      '0x8ba1f109551bD432803012645Hac136c0c8454A',
+    ],
+    type: [String],
+    minItems: 1,
+    maxItems: 100,
+  })
+  @IsArray()
+  @ArrayMinSize(1)
+  @ArrayMaxSize(100)
+  @IsEthereumAddress({ each: true })
+  memberAddresses: string[];
+}
+
+export class CheckMemberDto {
+  @ApiProperty({
+    description: 'Nome do canal',
+    example: 'my-awesome-channel',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @Length(1, 50)
+  channelName: string;
+
+  @ApiProperty({
+    description: 'Endereço do membro a ser verificado',
+    example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @IsEthereumAddress()
+  memberAddress: string;
+}
+
+// =============================================================
+//                    PAGINATION DTOs
+// =============================================================
+
+export class PaginationDto {
+  @ApiProperty({
+    description: 'Número da página (iniciando em 1)',
+    example: 1,
+    default: 1,
+    minimum: 1,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  page?: number = 1;
+
+  @ApiProperty({
+    description: 'Número de itens por página',
+    example: 50,
+    default: 50,
+    minimum: 1,
+    maximum: 200,
+  })
+  @IsOptional()
+  @IsNumber()
+  @Min(1)
+  @Max(200)
+  pageSize?: number = 50;
+}
+
+export class GetMembersDto extends PaginationDto {
+  @ApiProperty({
+    description: 'Nome do canal',
+    example: 'my-awesome-channel',
+  })
+  @IsString()
+  @IsNotEmpty()
+  @Length(1, 50)
+  channelName: string;
+}
+
+// =============================================================
+//                    RESPONSES
+// =============================================================
+export class AddChannelMembersResponseDto extends BaseChannelResponseDto {
+  @ApiProperty({
+    description: 'Lista de endereços dos novos membros',
+    example: [
+      '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
+      '0x8ba1f109551bD432803012645Hac136c0c8454A',
+    ],
+    type: [String],
+  })
+  addressMembers: string[];
+
+  @ApiProperty({
+    description: 'Número de membros adicionados com sucesso',
+    example: 2,
+  })
+  addedCount: number;
+}
+
+export class MembersResponseDto {
+  @ApiProperty({
+    description: 'Lista de endereços dos membros',
+    example: [
+      '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
+      '0x8ba1f109551bD432803012645Hac136c0c8454A',
+    ],
+    type: [String],
+  })
+  members: string[];
+
+  @ApiProperty({
+    description: 'Total de membros no canal',
+    example: 25,
+  })
+  totalMembers: number;
+
+  @ApiProperty({
+    description: 'Total de páginas',
+    example: 3,
+  })
+  totalPages: number;
+
+  @ApiProperty({
+    description: 'Se há próxima página',
+    example: true,
+  })
+  hasNextPage: boolean;
+
+  @ApiProperty({
+    description: 'Página atual',
+    example: 1,
+  })
+  currentPage: number;
+
+  @ApiProperty({
+    description: 'Nome do canal',
+    example: 'my-awesome-channel',
+  })
+  channelName: string;
+}
+
+export class ChannelsResponseDto {
+  @ApiProperty({
+    description: 'Lista de nomes dos canais',
+    example: ['channel-1', 'channel-2', 'my-awesome-channel'],
+    type: [String],
+  })
+  channels: string[];
+
+  @ApiProperty({
+    description: 'Total de canais',
+    example: 10,
+  })
+  totalChannels: number;
+
+  @ApiProperty({
+    description: 'Total de páginas',
+    example: 2,
+  })
+  totalPages: number;
+
+  @ApiProperty({
+    description: 'Se há próxima página',
+    example: false,
+  })
+  hasNextPage: boolean;
+
+  @ApiProperty({
+    description: 'Página atual',
+    example: 1,
+  })
+  currentPage: number;
+}
+
+export class MembershipCheckResponseDto {
+  @ApiProperty({
+    description: 'Se o endereço é membro do canal',
+    example: true,
+  })
+  isMember: boolean;
+
+  @ApiProperty({
+    description: 'Nome do canal verificado',
+    example: 'my-awesome-channel',
+  })
+  channelName: string;
+
+  @ApiProperty({
+    description: 'Endereço verificado',
+    example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
+  })
+  memberAddress: string;
 }
