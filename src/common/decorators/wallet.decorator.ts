@@ -31,15 +31,19 @@ export const PrivateKey = createParamDecorator(
     }
 
     // Verificar se parece com chave privada
-    const cleanKey = privateKey.startsWith('0x')
-      ? privateKey.slice(2)
-      : privateKey;
-    if (!/^[a-fA-F0-9]{64}$/.test(cleanKey)) {
+    const cleanKey = privateKey.trim();
+
+    let keyToValidate = cleanKey;
+    if (cleanKey.startsWith('0x')) {
+      keyToValidate = cleanKey.slice(2);
+    }
+
+    if (!/^[a-fA-F0-9]{64}$/.test(keyToValidate)) {
       throw new BadRequestException(
-        'Formato de chave privada inválido (deve ter 64 caracteres hex)',
+        `Formato de chave privada inválido. Deve ter 64 caracteres hexadecimais. Recebido: ${keyToValidate.length} caracteres`,
       );
     }
 
-    return privateKey;
+    return cleanKey.startsWith('0x') ? cleanKey : `0x${cleanKey}`;
   },
 );
