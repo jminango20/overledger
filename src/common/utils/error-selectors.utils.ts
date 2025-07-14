@@ -56,6 +56,37 @@ export const ADDRESS_DISCOVERY_ERRORS = [
 ];
 
 /**
+ * Customized errors for SchemaRegistry
+ */
+export const SCHEMA_REGISTRY_ERRORS = [
+  'DescriptionTooLong()',
+  'InvalidDataHash()',
+  'InvalidSchemaId()',
+  'InvalidSchemaName()',
+  'InvalidVersion()',
+  'NoActiveSchemaVersion(bytes32,bytes32)',
+  'NotSchemaOwner(bytes32,bytes32,address)',
+  'SchemaAlreadyExistsCannotRecreate(bytes32,bytes32)',
+  'SchemaAlreadyInactive(bytes32,bytes32,uint256)',
+  'SchemaHasNoActiveVersion(bytes32,bytes32)',
+  'SchemaNotActive(bytes32,bytes32,uint8)',
+  'SchemaNotDeprecated(bytes32,bytes32,uint256)',
+  'SchemaNotFoundInChannel(bytes32,bytes32)',
+  'SchemaVersionNotFoundInChannel(bytes32,bytes32,uint256)',
+];
+
+/**
+ * Customized errors for BaseTraceContract
+ */
+export const BASE_TRACE_ERRORS = [
+  'InvalidAddress(address)',
+  'InvalidChannelName(bytes32)',
+  'UnauthorizedChannelAccess(bytes32,address)',
+  'InvalidPageNumber(uint256)',
+  'InvalidPageSize(uint256)',
+];
+
+/**
  * Selectors pre-computed for AccessChannelManager
  */
 export const ACCESS_CHANNEL_SELECTORS = calculateErrorSelectors(
@@ -74,4 +105,16 @@ export const ACCESS_CONTROL_SELECTORS = calculateErrorSelectors(
  */
 export const ADDRESS_DISCOVERY_SELECTORS = calculateErrorSelectors(
   ADDRESS_DISCOVERY_ERRORS,
+);
+
+/**
+ * Selectors pre-computed for BaseTraceContract
+ */
+export const BASE_TRACE_SELECTORS = calculateErrorSelectors(BASE_TRACE_ERRORS);
+
+/**
+ * Selectors pre-computed for SchemaRegistry
+ */
+export const SCHEMA_REGISTRY_SELECTORS = calculateErrorSelectors(
+  SCHEMA_REGISTRY_ERRORS,
 );

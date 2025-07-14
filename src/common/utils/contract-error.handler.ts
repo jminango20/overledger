@@ -6,9 +6,11 @@ import {
   UnauthorizedException,
 } from '@nestjs/common';
 import {
+  BASE_TRACE_SELECTORS,
   ACCESS_CHANNEL_SELECTORS,
   ADDRESS_DISCOVERY_SELECTORS,
   ACCESS_CONTROL_SELECTORS,
+  SCHEMA_REGISTRY_SELECTORS,
 } from './error-selectors.utils';
 
 /**
@@ -16,6 +18,208 @@ import {
  */
 export class ContractErrorHandler {
   private static logger = new Logger('ContractErrorHandler');
+
+  /**
+   * Error parser for BaseTraceContract
+   */
+  static parseBaseTraceError(error: any): Error | null {
+    try {
+      const errorData = error.data;
+
+      if (!errorData || typeof errorData !== 'string') {
+        return null;
+      }
+
+      if (
+        errorData.startsWith(
+          BASE_TRACE_SELECTORS['UnauthorizedChannelAccess(bytes32,address)'],
+        )
+      ) {
+        return new UnauthorizedException(
+          'Usuário não é membro do canal especificado',
+        );
+      }
+
+      if (
+        errorData.startsWith(
+          BASE_TRACE_SELECTORS['InvalidChannelName(bytes32)'],
+        )
+      ) {
+        return new BadRequestException('Nome do canal inválido');
+      }
+
+      if (
+        errorData.startsWith(BASE_TRACE_SELECTORS['InvalidAddress(address)'])
+      ) {
+        return new BadRequestException('Endereço inválido');
+      }
+
+      if (
+        errorData.startsWith(BASE_TRACE_SELECTORS['InvalidPageNumber(uint256)'])
+      ) {
+        return new BadRequestException(
+          'Número de página inválido (deve ser >= 1)',
+        );
+      }
+
+      if (
+        errorData.startsWith(BASE_TRACE_SELECTORS['InvalidPageSize(uint256)'])
+      ) {
+        return new BadRequestException(
+          'Tamanho de página inválido (deve ser entre 1 e 200)',
+        );
+      }
+
+      return null;
+    } catch (parseError) {
+      this.logger.warn(
+        `Erro ao parsear BaseTrace error: ${parseError.message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Error parser for SchemaRegistry
+   */
+  static parseSchemaRegistryError(error: any): Error | null {
+    try {
+      const errorData = error.data;
+
+      if (!errorData || typeof errorData !== 'string') {
+        return null;
+      }
+
+      // Schema Input Validation Errors
+      if (
+        errorData.startsWith(SCHEMA_REGISTRY_SELECTORS['InvalidSchemaId()'])
+      ) {
+        return new BadRequestException(
+          'ID do schema é obrigatório e deve ser válido',
+        );
+      }
+
+      if (
+        errorData.startsWith(SCHEMA_REGISTRY_SELECTORS['InvalidSchemaName()'])
+      ) {
+        return new BadRequestException('Nome do schema é obrigatório');
+      }
+
+      if (
+        errorData.startsWith(SCHEMA_REGISTRY_SELECTORS['InvalidDataHash()'])
+      ) {
+        return new BadRequestException(
+          'Hash dos dados é obrigatório e deve ser válido',
+        );
+      }
+
+      if (
+        errorData.startsWith(SCHEMA_REGISTRY_SELECTORS['DescriptionTooLong()'])
+      ) {
+        return new BadRequestException(
+          'Descrição muito longa (máximo 255 caracteres)',
+        );
+      }
+
+      if (errorData.startsWith(SCHEMA_REGISTRY_SELECTORS['InvalidVersion()'])) {
+        return new BadRequestException(
+          'Versão inválida (deve ser maior que 0)',
+        );
+      }
+
+      // Schema Existence and State Errors
+      if (
+        errorData.startsWith(
+          SCHEMA_REGISTRY_SELECTORS[
+            'SchemaAlreadyExistsCannotRecreate(bytes32,bytes32)'
+          ],
+        )
+      ) {
+        return new ConflictException(
+          'Schema já existe no canal. Use updateSchema para criar uma nova versão',
+        );
+      }
+
+      if (
+        errorData.startsWith(
+          SCHEMA_REGISTRY_SELECTORS['SchemaNotFoundInChannel(bytes32,bytes32)'],
+        )
+      ) {
+        return new NotFoundException(
+          'Schema não encontrado no canal especificado',
+        );
+      }
+
+      if (
+        errorData.startsWith(
+          SCHEMA_REGISTRY_SELECTORS[
+            'SchemaVersionNotFoundInChannel(bytes32,bytes32,uint256)'
+          ],
+        )
+      ) {
+        return new NotFoundException(
+          'Versão do schema não encontrada no canal',
+        );
+      }
+
+      // Schema Status Errors
+      if (
+        errorData.startsWith(
+          SCHEMA_REGISTRY_SELECTORS['NoActiveSchemaVersion(bytes32,bytes32)'],
+        )
+      ) {
+        return new BadRequestException('Schema não possui versão ativa');
+      }
+
+      if (
+        errorData.startsWith(
+          SCHEMA_REGISTRY_SELECTORS[
+            'SchemaHasNoActiveVersion(bytes32,bytes32)'
+          ],
+        )
+      ) {
+        return new BadRequestException(
+          'Schema não possui versão ativa no momento',
+        );
+      }
+
+      if (
+        errorData.startsWith(
+          SCHEMA_REGISTRY_SELECTORS['SchemaNotActive(bytes32,bytes32,uint8)'],
+        )
+      ) {
+        return new BadRequestException('Schema não está ativo');
+      }
+
+      if (
+        errorData.startsWith(
+          SCHEMA_REGISTRY_SELECTORS[
+            'SchemaAlreadyInactive(bytes32,bytes32,uint256)'
+          ],
+        )
+      ) {
+        return new ConflictException('Schema já está inativo');
+      }
+
+      // Permission Errors
+      if (
+        errorData.startsWith(
+          SCHEMA_REGISTRY_SELECTORS['NotSchemaOwner(bytes32,bytes32,address)'],
+        )
+      ) {
+        return new UnauthorizedException(
+          'Apenas o proprietário do schema pode realizar esta operação',
+        );
+      }
+
+      return null;
+    } catch (parseError) {
+      this.logger.warn(
+        `Erro ao parsear SchemaRegistry error: ${parseError.message}`,
+      );
+      return null;
+    }
+  }
 
   /**
    * Error parser for AccessChannelManager
@@ -206,6 +410,9 @@ export class ContractErrorHandler {
     }
   }
 
+  /**
+   * Error parser for AccessControl
+   */
   static parseAccessControlError(error: any): Error | null {
     try {
       const errorData = error.data;
@@ -245,6 +452,12 @@ export class ContractErrorHandler {
    * Generic Handler
    */
   static parseContractError(error: any): Error | null {
+    const baseTraceError = this.parseBaseTraceError(error);
+    if (baseTraceError) return baseTraceError;
+
+    const schemaRegistryError = this.parseSchemaRegistryError(error);
+    if (schemaRegistryError) return schemaRegistryError;
+
     const accessControlError = this.parseAccessControlError(error);
     if (accessControlError) return accessControlError;
 
