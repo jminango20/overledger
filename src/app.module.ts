@@ -4,6 +4,7 @@ import { PrismaModule } from './prisma/prisma.module';
 import { BlockchainModule } from './blockchain/blockchain.module';
 import { AddressDiscoveryModule } from './modules/address-discovery/address-discovery.module';
 import { AccessChannelModule } from './modules/access-channel/access-channel.module';
+import { SchemaRegistryModule } from './modules/schema-registry/schema-registry.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { AccessChannelModule } from './modules/access-channel/access-channel.mod
     // Módulos de domínio
     AddressDiscoveryModule, // Nosso módulo principal
     AccessChannelModule, // Módulo de canais de acesso
+    SchemaRegistryModule, // Módulo de registro de esquemas
   ],
 })
 export class AppModule {}

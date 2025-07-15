@@ -1,9 +1,11 @@
 import AddressDiscoveryABI from './AddressDiscovery.json';
 import AccessChannelManagerABI from './AccessChannelManager.json';
+import SchemaRegistryABI from './SchemaRegistry.json';
 
 export const ABIs = {
   AddressDiscovery: AddressDiscoveryABI,
   AccessChannelManager: AccessChannelManagerABI,
+  SchemaRegistry: SchemaRegistryABI,
 } as const;
 
 export type ABIName = keyof typeof ABIs;
