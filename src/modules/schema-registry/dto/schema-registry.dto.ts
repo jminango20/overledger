@@ -224,7 +224,7 @@ export class DeprecateSchemaDto {
   channelName: string;
 }
 
-export class InactiveSchemaDto {
+export class InactivateSchemaDto {
   @SchemaIdValidation()
   schemaId: string;
 
@@ -329,7 +329,7 @@ export class DeprecateSchemaResponseDto extends BaseSchemaResponseDto {
   owner: string;
 }
 
-export class InactiveSchemaResponseDto extends BaseSchemaResponseDto {
+export class InactivateSchemaResponseDto extends BaseSchemaResponseDto {
   @ApiProperty({
     description: 'ID do schema inativo',
     example: 'user-profile-schema',
@@ -341,6 +341,13 @@ export class InactiveSchemaResponseDto extends BaseSchemaResponseDto {
     example: 2,
   })
   inactivatedVersion: number;
+
+  @ApiProperty({
+    description: 'Status anterior da versão',
+    enum: SchemaStatus,
+    example: SchemaStatus.ACTIVE,
+  })
+  previousStatus: SchemaStatus;
 
   @ApiProperty({
     description: 'Nome do canal',
@@ -395,10 +402,10 @@ export class SchemaDto {
 
   @ApiProperty({
     description: 'Status do schema',
-    enum: SchemaStatus,
     example: SchemaStatus.ACTIVE,
+    enum: ['ACTIVE', 'DEPRECATED', 'INACTIVE'],
   })
-  status: SchemaStatus;
+  statusName: string;
 
   @ApiProperty({
     description: 'Timestamp de criação (Unix timestamp)',
@@ -485,6 +492,53 @@ export class GetSchemaByVersionDto extends GetSchemaDto {
   @IsNumber()
   @Min(1)
   version: number;
+}
+
+export class GetLatestSchemaResponseDto {
+  @ApiProperty({
+    description: 'Schema completo (versão mais recente)',
+    type: SchemaDto,
+  })
+  schema: SchemaDto;
+
+  @ApiProperty({
+    description: 'Se esta é também a versão ativa',
+    example: true,
+  })
+  isActiveVersion: boolean;
+}
+
+export class GetSchemaVersionsResponseDto extends GetSchemaDto {
+  @ApiProperty({
+    description: 'Array com números das versões existentes',
+    example: [1, 2, 3],
+    type: [Number],
+  })
+  versions: number[];
+
+  @ApiProperty({
+    description: 'Array com os schemas completos de cada versão',
+    type: [SchemaDto],
+  })
+  schemas: SchemaDto[];
+
+  @ApiProperty({
+    description: 'Versão atualmente ativa (0 se nenhuma)',
+    example: 3,
+  })
+  activeVersion: number;
+
+  @ApiProperty({
+    description: 'Versão mais recente',
+    example: 3,
+  })
+  latestVersion: number;
+
+  @ApiProperty({
+    description: 'Total de versões existentes',
+    example: 3,
+  })
+  totalVersions: number;
 }
 
 // =============================================================

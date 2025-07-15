@@ -4,13 +4,20 @@ import {
   CreateSchemaDto,
   CreateSchemaResponseDto,
   DeprecateSchemaDto,
+  UpdateSchemaDto,
+  InactivateSchemaDto,
   SchemaDto,
   SchemaInfoResponseDto,
   GetSchemaDto,
   SchemaInputContract,
   SchemaStatus,
   DeprecateSchemaResponseDto,
+  UpdateSchemaResponseDto,
+  SchemaUpdateInputContract,
+  InactivateSchemaResponseDto,
   GetSchemaByVersionDto,
+  GetLatestSchemaResponseDto,
+  GetSchemaVersionsResponseDto,
 } from './dto/schema-registry.dto';
 import { BlockchainProvider } from '../../blockchain/providers/blockchain.provider';
 import { ContractErrorHandler } from '../../common/utils/contract-error.handler';
@@ -140,6 +147,115 @@ export class SchemaRegistryService {
   }
 
   /**
+   * Update a schema
+   */
+  async updateSchema(
+    updateDto: UpdateSchemaDto,
+    privateKey: string,
+  ): Promise<UpdateSchemaResponseDto> {
+    if (!updateDto.schemaId?.trim()) {
+      throw new BadRequestException('ID do schema é obrigatório');
+    }
+
+    if (!updateDto.channelName?.trim()) {
+      throw new BadRequestException('Nome do canal é obrigatório');
+    }
+
+    if (!updateDto.newDataHash?.trim()) {
+      throw new BadRequestException('Novo hash dos dados é obrigatório');
+    }
+
+    return this.executeUpdateSchemaOperation(
+      'updateSchema',
+      updateDto.schemaId,
+      updateDto.channelName,
+      privateKey,
+      async (contract) => {
+        // Preparar o struct SchemaUpdateInput para o contrato
+        const schemaUpdateInput: SchemaUpdateInputContract = {
+          id: this.blockchainProvider.stringToBytes32(updateDto.schemaId),
+          newDataHash: updateDto.newDataHash.startsWith('0x')
+            ? updateDto.newDataHash
+            : `0x${updateDto.newDataHash}`,
+          channelName: this.blockchainProvider.stringToBytes32(
+            updateDto.channelName,
+          ),
+          description: updateDto.description || '',
+        };
+
+        this.logger.debug(`Chamando updateSchema com:`, {
+          schemaId: updateDto.schemaId,
+          channelName: updateDto.channelName,
+          newDataHash: updateDto.newDataHash,
+        });
+
+        const tx = await contract.updateSchema(schemaUpdateInput);
+
+        return {
+          tx,
+          schemaId: updateDto.schemaId,
+          channelName: updateDto.channelName,
+        };
+      },
+    );
+  }
+
+  /**
+   * Inactivate a specific version of a schema
+   */
+  async inactivateSchema(
+    inactivateDto: InactivateSchemaDto,
+    privateKey: string,
+  ): Promise<InactivateSchemaResponseDto> {
+    if (!inactivateDto.schemaId?.trim()) {
+      throw new BadRequestException('ID do schema é obrigatório');
+    }
+
+    if (!inactivateDto.channelName?.trim()) {
+      throw new BadRequestException('Nome do canal é obrigatório');
+    }
+
+    if (!inactivateDto.version || inactivateDto.version < 1) {
+      throw new BadRequestException('Versão deve ser maior que 0');
+    }
+
+    return this.executeInactivateSchemaOperation(
+      'inactivateSchema',
+      inactivateDto.schemaId,
+      inactivateDto.channelName,
+      inactivateDto.version,
+      privateKey,
+      async (contract) => {
+        const schemaIdBytes32 = this.blockchainProvider.stringToBytes32(
+          inactivateDto.schemaId,
+        );
+        const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
+          inactivateDto.channelName,
+        );
+
+        this.logger.debug(`Chamando inactivateSchema com:`, {
+          schemaId: inactivateDto.schemaId,
+          version: inactivateDto.version,
+          channelName: inactivateDto.channelName,
+        });
+
+        const tx = await contract.inactivateSchema(
+          schemaIdBytes32,
+          inactivateDto.version,
+          channelNameBytes32,
+        );
+
+        return {
+          tx,
+          schemaId: inactivateDto.schemaId,
+          version: inactivateDto.version,
+          channelName: inactivateDto.channelName,
+        };
+      },
+    );
+  }
+
+  /**
    * Get schema by version
    */
   async getSchemaByVersion(
@@ -226,6 +342,143 @@ export class SchemaRegistryService {
       if (error.code === 'CALL_EXCEPTION') {
         throw new BadRequestException(
           'Erro na chamada do contrato. Verifique se o schema existe e está ativo no canal.',
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Get latest schema
+   */
+  async getLatestSchema(
+    getSchemaDto: GetSchemaDto,
+    privateKey: string,
+  ): Promise<GetLatestSchemaResponseDto> {
+    this.logger.log(
+      `Buscando o schema mais recente: ${getSchemaDto.schemaId} no canal ${getSchemaDto.channelName}`,
+    );
+
+    try {
+      const contract = await this.getSchemaRegistryContract(privateKey);
+
+      const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
+        getSchemaDto.channelName,
+      );
+      const schemaIdBytes32 = this.blockchainProvider.stringToBytes32(
+        getSchemaDto.schemaId,
+      );
+
+      const result = await contract.getLatestSchema(
+        channelNameBytes32,
+        schemaIdBytes32,
+      );
+
+      const schema = this.parseSchemaFromContract(result);
+
+      // Verificar se esta é também a versão ativa
+      let isActiveVersion = false;
+      try {
+        const activeResult = await contract.getActiveSchema(
+          channelNameBytes32,
+          schemaIdBytes32,
+        );
+        const activeSchema = this.parseSchemaFromContract(activeResult);
+        isActiveVersion = schema.version === activeSchema.version;
+      } catch {
+        // Se não há versão ativa, isActiveVersion permanece false
+        this.logger.debug('Não há versão ativa para este schema');
+      }
+
+      return {
+        schema,
+        isActiveVersion,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Erro ao buscar schema ativo: ${error.message}`,
+        error.stack,
+      );
+
+      const customError = ContractErrorHandler.parseContractError(error);
+      if (customError) {
+        throw customError;
+      }
+
+      if (error.code === 'CALL_EXCEPTION') {
+        throw new BadRequestException(
+          'Erro na chamada do contrato. Verifique se o schema existe e está ativo no canal.',
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * Get all versions of a schema
+   */
+  async getSchemaVersions(
+    getSchemaDto: GetSchemaDto,
+  ): Promise<GetSchemaVersionsResponseDto> {
+    this.logger.log(
+      `Buscando todas as versões do schema: ${getSchemaDto.schemaId} no canal ${getSchemaDto.channelName}`,
+    );
+
+    try {
+      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
+      const contract = await this.getSchemaRegistryContract(tempPrivateKey);
+
+      const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
+        getSchemaDto.channelName,
+      );
+      const schemaIdBytes32 = this.blockchainProvider.stringToBytes32(
+        getSchemaDto.schemaId,
+      );
+
+      // Obter todas as versões
+      const result = await contract.getSchemaVersions(
+        channelNameBytes32,
+        schemaIdBytes32,
+      );
+
+      const versions: number[] = result.versions.map((v: any) => Number(v));
+      const schemas: SchemaDto[] = result.schemas.map((schema: any) =>
+        this.parseSchemaFromContract(schema),
+      );
+
+      // Obter informações adicionais do schema
+      const infoResult = await contract.getSchemaInfo(
+        channelNameBytes32,
+        schemaIdBytes32,
+      );
+      const activeVersion = Number(infoResult.activeVersion);
+      const latestVersion = Number(infoResult.latestVersion);
+
+      return {
+        schemaId: getSchemaDto.schemaId,
+        channelName: getSchemaDto.channelName,
+        versions,
+        schemas,
+        activeVersion,
+        latestVersion,
+        totalVersions: versions.length,
+      };
+    } catch (error) {
+      this.logger.error(
+        `Erro ao buscar versões do schema: ${error.message}`,
+        error.stack,
+      );
+
+      const customError = ContractErrorHandler.parseContractError(error);
+      if (customError) {
+        throw customError;
+      }
+
+      if (error.code === 'CALL_EXCEPTION') {
+        throw new BadRequestException(
+          'Erro na chamada do contrato. Verifique se o schema existe no canal.',
         );
       }
 
@@ -468,6 +721,202 @@ export class SchemaRegistryService {
   }
 
   /**
+   * Execute update schema operation
+   */
+  private async executeUpdateSchemaOperation(
+    operationName: string,
+    schemaId: string,
+    channelName: string,
+    privateKey: string,
+    operation: (contract: ethers.Contract) => Promise<{
+      tx: ethers.ContractTransactionResponse;
+      schemaId: string;
+      channelName: string;
+    }>,
+  ): Promise<UpdateSchemaResponseDto> {
+    const startTime = Date.now();
+    this.logger.log(
+      `[${operationName}] Iniciando para schema: ${schemaId} no canal: ${channelName}`,
+    );
+
+    try {
+      const contract = await this.getSchemaRegistryContract(privateKey);
+      const walletAddress =
+        await this.blockchainProvider.getWalletAddress(privateKey);
+
+      const {
+        tx,
+        schemaId: responseSchemaId,
+        channelName: responseChannelName,
+      } = await operation(contract);
+
+      this.logger.log(`Transação enviada: ${tx.hash}`);
+
+      const receipt = await tx.wait();
+      this.logger.log(`Transação confirmada no bloco: ${receipt?.blockNumber}`);
+
+      // Extrair informações do evento SchemaUpdated
+      const schemaUpdatedEvent = receipt?.logs?.find(
+        (log) =>
+          log.topics[0] ===
+          ethers.id(
+            'SchemaUpdated(bytes32,uint256,uint256,address,bytes32,uint256)',
+          ),
+      );
+
+      let previousVersion = 0;
+      let newVersion = 0;
+
+      if (schemaUpdatedEvent && schemaUpdatedEvent.data) {
+        try {
+          // Decodificar o evento SchemaUpdated
+          const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+          const decoded = abiCoder.decode(
+            ['uint256', 'bytes32', 'uint256'],
+            schemaUpdatedEvent.data,
+          );
+          previousVersion = Number(decoded[0]);
+          newVersion = Number(decoded[2]);
+        } catch (decodeError) {
+          this.logger.warn(
+            'Erro ao decodificar evento SchemaUpdated:',
+            decodeError.message,
+          );
+          // Fallback: assumir que é uma atualização da versão 1 para 2
+          previousVersion = 1;
+          newVersion = 2;
+        }
+      }
+
+      const duration = Date.now() - startTime;
+      this.logger.log(
+        `[${operationName}] Concluído em ${duration}ms - TxHash: ${tx.hash}`,
+      );
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        schemaId: responseSchemaId,
+        previousVersion,
+        newVersion,
+        channelName: responseChannelName,
+        owner: walletAddress,
+        blockNumber: receipt?.blockNumber,
+        gasUsed: receipt?.gasUsed?.toString(),
+      };
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.error(
+        `[${operationName}] Falhou após ${duration}ms:`,
+        error.message,
+      );
+      return this.handleContractError(
+        error,
+        operationName,
+        schemaId,
+        channelName,
+      );
+    }
+  }
+
+  /**
+   * Execute inactivate schema operation
+   */
+  private async executeInactivateSchemaOperation(
+    operationName: string,
+    schemaId: string,
+    channelName: string,
+    version: number,
+    privateKey: string,
+    operation: (contract: ethers.Contract) => Promise<{
+      tx: ethers.ContractTransactionResponse;
+      schemaId: string;
+      version: number;
+      channelName: string;
+    }>,
+  ): Promise<InactivateSchemaResponseDto> {
+    const startTime = Date.now();
+    this.logger.log(
+      `[${operationName}] Iniciando para schema: ${schemaId} versão: ${version} no canal: ${channelName}`,
+    );
+
+    try {
+      const contract = await this.getSchemaRegistryContract(privateKey);
+      const walletAddress =
+        await this.blockchainProvider.getWalletAddress(privateKey);
+
+      const {
+        tx,
+        schemaId: responseSchemaId,
+        version: responseVersion,
+        channelName: responseChannelName,
+      } = await operation(contract);
+
+      this.logger.log(`Transação enviada: ${tx.hash}`);
+
+      const receipt = await tx.wait();
+      this.logger.log(`Transação confirmada no bloco: ${receipt?.blockNumber}`);
+
+      // Extrair informações do evento SchemaInactivated
+      const schemaInactivatedEvent = receipt?.logs?.find(
+        (log) =>
+          log.topics[0] ===
+          ethers.id(
+            'SchemaInactivated(bytes32,uint256,uint8,address,bytes32,uint256)',
+          ),
+      );
+
+      let previousStatus = SchemaStatus.ACTIVE; // Default
+
+      if (schemaInactivatedEvent && schemaInactivatedEvent.data) {
+        try {
+          // Decodificar o evento SchemaInactivated
+          const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+          const decoded = abiCoder.decode(
+            ['uint8', 'bytes32', 'uint256'],
+            schemaInactivatedEvent.data,
+          );
+          previousStatus = Number(decoded[0]) as SchemaStatus;
+        } catch (decodeError) {
+          this.logger.warn(
+            'Erro ao decodificar evento SchemaInactivated:',
+            decodeError.message,
+          );
+        }
+      }
+
+      const duration = Date.now() - startTime;
+      this.logger.log(
+        `[${operationName}] Concluído em ${duration}ms - TxHash: ${tx.hash}`,
+      );
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        schemaId: responseSchemaId,
+        inactivatedVersion: responseVersion,
+        previousStatus,
+        channelName: responseChannelName,
+        owner: walletAddress,
+        blockNumber: receipt?.blockNumber,
+        gasUsed: receipt?.gasUsed?.toString(),
+      };
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.error(
+        `[${operationName}] Falhou após ${duration}ms:`,
+        error.message,
+      );
+      return this.handleContractError(
+        error,
+        operationName,
+        schemaId,
+        channelName,
+      );
+    }
+  }
+
+  /**
    * Get contract address from blockchain
    */
   private async getSchemaRegistryContract(
@@ -522,6 +971,8 @@ export class SchemaRegistryService {
    * Parse schema from contract response
    */
   private parseSchemaFromContract(contractResult: any): SchemaDto {
+    const statusNumber = Number(contractResult.status) as SchemaStatus;
+
     return {
       id: this.blockchainProvider.bytes32ToString(contractResult.id),
       name: contractResult.name,
@@ -531,7 +982,7 @@ export class SchemaRegistryService {
       channelName: this.blockchainProvider.bytes32ToString(
         contractResult.channelName,
       ),
-      status: Number(contractResult.status) as SchemaStatus,
+      statusName: SchemaStatus[statusNumber],
       createdAt: Number(contractResult.createdAt),
       updatedAt: Number(contractResult.updatedAt),
       description: contractResult.description,

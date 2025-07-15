@@ -6,6 +6,7 @@ export {
   CreateSchemaDto,
   UpdateSchemaDto,
   DeprecateSchemaDto,
+  InactivateSchemaDto,
   GetSchemaDto,
   GetSchemaByVersionDto,
 
@@ -13,6 +14,9 @@ export {
   CreateSchemaResponseDto,
   UpdateSchemaResponseDto,
   DeprecateSchemaResponseDto,
+  InactivateSchemaResponseDto,
+  GetLatestSchemaResponseDto,
+  GetSchemaVersionsResponseDto,
   SchemaDto,
   SchemaInfoResponseDto,
 
