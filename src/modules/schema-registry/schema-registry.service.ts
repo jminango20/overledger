@@ -3,11 +3,14 @@ import { ethers } from 'ethers';
 import {
   CreateSchemaDto,
   CreateSchemaResponseDto,
+  DeprecateSchemaDto,
   SchemaDto,
   SchemaInfoResponseDto,
   GetSchemaDto,
   SchemaInputContract,
   SchemaStatus,
+  DeprecateSchemaResponseDto,
+  GetSchemaByVersionDto,
 } from './dto/schema-registry.dto';
 import { BlockchainProvider } from '../../blockchain/providers/blockchain.provider';
 import { ContractErrorHandler } from '../../common/utils/contract-error.handler';
@@ -90,9 +93,105 @@ export class SchemaRegistryService {
   }
 
   /**
+   * Deprecate a schema
+   */
+  async deprecateSchema(
+    deprecateDto: DeprecateSchemaDto,
+    privateKey: string,
+  ): Promise<DeprecateSchemaResponseDto> {
+    if (!deprecateDto.schemaId?.trim()) {
+      throw new BadRequestException('ID do schema é obrigatório');
+    }
+
+    if (!deprecateDto.channelName?.trim()) {
+      throw new BadRequestException('Nome do canal é obrigatório');
+    }
+
+    return this.executeDeprecateSchemaOperation(
+      'deprecateSchema',
+      deprecateDto.schemaId,
+      deprecateDto.channelName,
+      privateKey,
+      async (contract) => {
+        const schemaIdBytes32 = this.blockchainProvider.stringToBytes32(
+          deprecateDto.schemaId,
+        );
+        const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
+          deprecateDto.channelName,
+        );
+
+        this.logger.debug(`Chamando deprecateSchema com:`, {
+          schemaId: deprecateDto.schemaId,
+          channelName: deprecateDto.channelName,
+        });
+
+        const tx = await contract.deprecateSchema(
+          schemaIdBytes32,
+          channelNameBytes32,
+        );
+
+        return {
+          tx,
+          schemaId: deprecateDto.schemaId,
+          channelName: deprecateDto.channelName,
+        };
+      },
+    );
+  }
+
+  /**
+   * Get schema by version
+   */
+  async getSchemaByVersion(
+    getSchemaByVersionDto: GetSchemaByVersionDto,
+    privateKey: string,
+  ): Promise<SchemaDto> {
+    this.logger.log(
+      `Buscando schema ${getSchemaByVersionDto.schemaId} por versão: ${getSchemaByVersionDto.version} no canal ${getSchemaByVersionDto.channelName}`,
+    );
+
+    try {
+      const contract = await this.getSchemaRegistryContract(privateKey);
+
+      const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
+        getSchemaByVersionDto.channelName,
+      );
+      const schemaIdBytes32 = this.blockchainProvider.stringToBytes32(
+        getSchemaByVersionDto.schemaId,
+      );
+
+      const result = await contract.getSchemaByVersion(
+        channelNameBytes32,
+        schemaIdBytes32,
+        getSchemaByVersionDto.version,
+      );
+
+      return this.parseSchemaFromContract(result);
+    } catch (error) {
+      this.logger.error(`Erro ao buscar schema: ${error.message}`, error.stack);
+
+      const customError = ContractErrorHandler.parseContractError(error);
+      if (customError) {
+        throw customError;
+      }
+
+      if (error.code === 'CALL_EXCEPTION') {
+        throw new BadRequestException(
+          'Erro na chamada do contrato. Verifique se o schema existe no canal.',
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  /**
    * Get active schema
    */
-  async getActiveSchema(getSchemaDto: GetSchemaDto, privateKey: string,): Promise<SchemaDto> {
+  async getActiveSchema(
+    getSchemaDto: GetSchemaDto,
+    privateKey: string,
+  ): Promise<SchemaDto> {
     this.logger.log(
       `Buscando schema ativo: ${getSchemaDto.schemaId} no canal ${getSchemaDto.channelName}`,
     );
@@ -259,6 +358,100 @@ export class SchemaRegistryService {
         blockNumber: receipt?.blockNumber,
         gasUsed: receipt?.gasUsed?.toString(),
       } as T;
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.error(
+        `[${operationName}] Falhou após ${duration}ms:`,
+        error.message,
+      );
+      return this.handleContractError(
+        error,
+        operationName,
+        schemaId,
+        channelName,
+      );
+    }
+  }
+
+  /**
+   * Execute deprecate schema operation
+   */
+  private async executeDeprecateSchemaOperation(
+    operationName: string,
+    schemaId: string,
+    channelName: string,
+    privateKey: string,
+    operation: (contract: ethers.Contract) => Promise<{
+      tx: ethers.ContractTransactionResponse;
+      schemaId: string;
+      channelName: string;
+    }>,
+  ): Promise<DeprecateSchemaResponseDto> {
+    const startTime = Date.now();
+    this.logger.log(
+      `[${operationName}] Iniciando para schema: ${schemaId} no canal: ${channelName}`,
+    );
+
+    try {
+      const contract = await this.getSchemaRegistryContract(privateKey);
+      const walletAddress =
+        await this.blockchainProvider.getWalletAddress(privateKey);
+
+      const {
+        tx,
+        schemaId: responseSchemaId,
+        channelName: responseChannelName,
+      } = await operation(contract);
+
+      this.logger.log(`Transação enviada: ${tx.hash}`);
+
+      const receipt = await tx.wait();
+      this.logger.log(`Transação confirmada no bloco: ${receipt?.blockNumber}`);
+
+      // Extrair informações do evento SchemaDeprecated
+      const schemaDeprecatedEvent = receipt?.logs?.find(
+        (log) =>
+          log.topics[0] ===
+          ethers.id(
+            'SchemaDeprecated(bytes32,uint256,address,bytes32,uint256)',
+          ),
+      );
+
+      let deprecatedVersion = 0;
+
+      if (schemaDeprecatedEvent && schemaDeprecatedEvent.data) {
+        try {
+          // Decodificar o evento SchemaDeprecated
+          const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+          const decoded = abiCoder.decode(
+            ['uint256', 'bytes32', 'uint256'],
+            schemaDeprecatedEvent.data,
+          );
+          deprecatedVersion = Number(decoded[0]);
+        } catch (decodeError) {
+          this.logger.warn(
+            'Erro ao decodificar evento SchemaDeprecated:',
+            decodeError.message,
+          );
+          deprecatedVersion = 1;
+        }
+      }
+
+      const duration = Date.now() - startTime;
+      this.logger.log(
+        `[${operationName}] Concluído em ${duration}ms - TxHash: ${tx.hash}`,
+      );
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        schemaId: responseSchemaId,
+        deprecatedVersion,
+        channelName: responseChannelName,
+        owner: walletAddress,
+        blockNumber: receipt?.blockNumber,
+        gasUsed: receipt?.gasUsed?.toString(),
+      };
     } catch (error) {
       const duration = Date.now() - startTime;
       this.logger.error(

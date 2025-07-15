@@ -120,6 +120,22 @@ function DescriptionValidation() {
   };
 }
 
+function VersionValidation() {
+  return function (target: any, propertyKey: string) {
+    ApiProperty({
+      description: 'Versão do schema',
+      example: '1',
+      minimum: 1,
+      nullable: false,
+      required: true,
+      type: 'integer',
+    })(target, propertyKey);
+
+    IsNumber()(target, propertyKey);
+    Min(1)(target, propertyKey);
+  };
+}
+
 // Base response interface
 interface BaseTransactionResponse {
   success: boolean;
@@ -186,6 +202,39 @@ export class CreateSchemaDto {
   description?: string;
 }
 
+export class UpdateSchemaDto {
+  @SchemaIdValidation()
+  schemaId: string;
+
+  @DataHashValidation()
+  newDataHash: string;
+
+  @ChannelNameValidation()
+  channelName: string;
+
+  @DescriptionValidation()
+  description?: string;
+}
+
+export class DeprecateSchemaDto {
+  @SchemaIdValidation()
+  schemaId: string;
+
+  @ChannelNameValidation()
+  channelName: string;
+}
+
+export class InactiveSchemaDto {
+  @SchemaIdValidation()
+  schemaId: string;
+
+  @VersionValidation()
+  version: number;
+
+  @ChannelNameValidation()
+  channelName: string;
+}
+
 // =============================================================
 //                    RESPONSE DTOs
 // =============================================================
@@ -211,6 +260,90 @@ export class CreateSchemaResponseDto extends BaseSchemaResponseDto {
 
   @ApiProperty({
     description: 'Nome do canal onde o schema foi criado',
+    example: 'my-awesome-channel',
+  })
+  channelName: string;
+
+  @ApiProperty({
+    description: 'Endereço do proprietário do schema',
+    example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
+  })
+  owner: string;
+}
+
+export class UpdateSchemaResponseDto extends BaseSchemaResponseDto {
+  @ApiProperty({
+    description: 'ID do schema atualizado',
+    example: 'user-profile-schema',
+  })
+  schemaId: string;
+
+  @ApiProperty({
+    description: 'Versão anterior (que foi depreciada)',
+    example: 1,
+  })
+  previousVersion: number;
+
+  @ApiProperty({
+    description: 'Nova versão criada (agora ativa)',
+    example: 2,
+  })
+  newVersion: number;
+
+  @ApiProperty({
+    description: 'Nome do canal',
+    example: 'my-awesome-channel',
+  })
+  channelName: string;
+
+  @ApiProperty({
+    description: 'Endereço do proprietário do schema',
+    example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
+  })
+  owner: string;
+}
+
+export class DeprecateSchemaResponseDto extends BaseSchemaResponseDto {
+  @ApiProperty({
+    description: 'ID do schema depreciado',
+    example: 'user-profile-schema',
+  })
+  schemaId: string;
+
+  @ApiProperty({
+    description: 'Versão que foi depreciada',
+    example: 2,
+  })
+  deprecatedVersion: number;
+
+  @ApiProperty({
+    description: 'Nome do canal',
+    example: 'my-awesome-channel',
+  })
+  channelName: string;
+
+  @ApiProperty({
+    description: 'Endereço do proprietário do schema',
+    example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
+  })
+  owner: string;
+}
+
+export class InactiveSchemaResponseDto extends BaseSchemaResponseDto {
+  @ApiProperty({
+    description: 'ID do schema inativo',
+    example: 'user-profile-schema',
+  })
+  schemaId: string;
+
+  @ApiProperty({
+    description: 'Versão que foi inativada',
+    example: 2,
+  })
+  inactivatedVersion: number;
+
+  @ApiProperty({
+    description: 'Nome do canal',
     example: 'my-awesome-channel',
   })
   channelName: string;
@@ -362,6 +495,13 @@ export interface SchemaInputContract {
   id: string; // Será convertido para bytes32
   name: string;
   dataHash: string; // Será convertido para bytes32
+  channelName: string; // Será convertido para bytes32
+  description: string;
+}
+
+export interface SchemaUpdateInputContract {
+  id: string; // Será convertido para bytes32
+  newDataHash: string; // Será convertido para bytes32
   channelName: string; // Será convertido para bytes32
   description: string;
 }

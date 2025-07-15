@@ -21,6 +21,9 @@ import {
   SchemaDto,
   SchemaInfoResponseDto,
   GetSchemaDto,
+  DeprecateSchemaDto,
+  DeprecateSchemaResponseDto,
+  GetSchemaByVersionDto,
 } from './dto/schema-registry.dto';
 import { PrivateKey } from '../../common/decorators/wallet.decorator';
 
@@ -102,6 +105,157 @@ export class SchemaRegistryController {
   }
 
   /**
+   * Deprecate a schema
+   */
+  @Post('schemas/deprecate')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Depreciar um schema',
+    description:
+      'Deprecia um schema ativo, tornando-o indisponível para uso futuro mas mantendo dados existentes.',
+  })
+  @ApiHeader({
+    name: 'x-private-key',
+    description: 'Chave privada da wallet (64 caracteres hexadecimais)',
+    required: true,
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Schema depreciado com sucesso',
+    type: DeprecateSchemaResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos ou erro na transação',
+    examples: {
+      'no-active-version': {
+        summary: 'Schema nao possui versão ativa',
+        value: {
+          statusCode: 400,
+          message: 'Schema não possui versão ativa',
+          error: 'Bad Request',
+        },
+      },
+      'schema-not-active': {
+        summary: 'Schema não está ativo',
+        value: {
+          statusCode: 400,
+          message: 'Schema não está ativo',
+          error: 'Bad Request',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Não autorizado',
+    example: {
+      statusCode: 401,
+      message: 'Apenas o proprietário do schema pode realizar esta operação',
+      error: 'Unauthorized',
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Schema não encontrado',
+    example: {
+      statusCode: 404,
+      message: 'Schema não encontrado no canal especificado',
+      error: 'Not Found',
+    },
+  })
+  async deprecateSchema(
+    @Body() deprecateSchemaDto: DeprecateSchemaDto,
+    @PrivateKey() privateKey: string,
+  ): Promise<DeprecateSchemaResponseDto> {
+    return await this.schemaRegistryService.deprecateSchema(
+      deprecateSchemaDto,
+      privateKey,
+    );
+  }
+
+  /**
+   * Get schema by version
+   */
+  @Get('schemas/:channelName/:schemaId/:version')
+  @ApiOperation({
+    summary: 'Obter schema por versão',
+    description: 'Retorna o schema de uma versão específica.',
+  })
+  @ApiHeader({
+    name: 'x-private-key',
+    description: 'Chave privada da wallet (64 caracteres hexadecimais)',
+    required: true,
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  @ApiParam({
+    name: 'channelName',
+    description: 'Nome do canal',
+    example: 'my-awesome-channel',
+  })
+  @ApiParam({
+    name: 'schemaId',
+    description: 'ID do schema',
+    example: 'user-profile-schema',
+  })
+  @ApiParam({
+    name: 'version',
+    description: 'Número da versão do schema',
+    example: '1',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Schema retornado com sucesso',
+    type: SchemaDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Parâmetros inválidos',
+    example: {
+      statusCode: 400,
+      message: ['Versão deve ser um número maior que 0'],
+      error: 'Bad Request',
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Usuário não é membro do canal',
+    example: {
+      statusCode: 401,
+      message: 'Usuário não é membro do canal especificado',
+      error: 'Unauthorized',
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Schema ou versão não encontrado',
+    example: {
+      statusCode: 404,
+      message: 'Schema ou versão não encontrado no canal especificado',
+      error: 'Not Found',
+    },
+  })
+  async getSchemaByVersion(
+    @Param('channelName') channelName: string,
+    @Param('schemaId') schemaId: string,
+    @Param('version') version: string,
+    @PrivateKey() privateKey: string,
+  ): Promise<SchemaDto> {
+    const getSchemaByVersionDto: GetSchemaByVersionDto = {
+      channelName,
+      schemaId,
+      version: parseInt(version),
+    };
+    return await this.schemaRegistryService.getSchemaByVersion(
+      getSchemaByVersionDto,
+      privateKey,
+    );
+  }
+
+  /**
    * Get active schema
    */
   @Get('schemas/:channelName/:schemaId/active')
@@ -164,7 +318,10 @@ export class SchemaRegistryController {
     @PrivateKey() privateKey: string,
   ): Promise<SchemaDto> {
     const getSchemaDto: GetSchemaDto = { channelName, schemaId };
-    return await this.schemaRegistryService.getActiveSchema(getSchemaDto, privateKey);
+    return await this.schemaRegistryService.getActiveSchema(
+      getSchemaDto,
+      privateKey,
+    );
   }
 
   /**
@@ -222,6 +379,9 @@ export class SchemaRegistryController {
     @PrivateKey() privateKey: string,
   ): Promise<SchemaInfoResponseDto> {
     const getSchemaDto: GetSchemaDto = { channelName, schemaId };
-    return await this.schemaRegistryService.getSchemaInfo(getSchemaDto, privateKey);
+    return await this.schemaRegistryService.getSchemaInfo(
+      getSchemaDto,
+      privateKey,
+    );
   }
 }
