@@ -100,12 +100,6 @@ export class ContractErrorHandler {
       }
 
       if (
-        errorData.startsWith(SCHEMA_REGISTRY_SELECTORS['InvalidSchemaName()'])
-      ) {
-        return new BadRequestException('Nome do schema é obrigatório');
-      }
-
-      if (
         errorData.startsWith(SCHEMA_REGISTRY_SELECTORS['InvalidDataHash()'])
       ) {
         return new BadRequestException(
@@ -114,16 +108,22 @@ export class ContractErrorHandler {
       }
 
       if (
-        errorData.startsWith(SCHEMA_REGISTRY_SELECTORS['DescriptionTooLong()'])
+        errorData.startsWith(SCHEMA_REGISTRY_SELECTORS['InvalidSchemaName()'])
       ) {
-        return new BadRequestException(
-          'Descrição muito longa (máximo 255 caracteres)',
-        );
+        return new BadRequestException('Nome do schema é obrigatório');
       }
 
       if (errorData.startsWith(SCHEMA_REGISTRY_SELECTORS['InvalidVersion()'])) {
         return new BadRequestException(
           'Versão inválida (deve ser maior que 0)',
+        );
+      }
+
+      if (
+        errorData.startsWith(SCHEMA_REGISTRY_SELECTORS['DescriptionTooLong()'])
+      ) {
+        return new BadRequestException(
+          'Descrição muito longa (máximo 255 caracteres)',
         );
       }
 
@@ -162,27 +162,6 @@ export class ContractErrorHandler {
         );
       }
 
-      // Schema Status Errors
-      if (
-        errorData.startsWith(
-          SCHEMA_REGISTRY_SELECTORS['NoActiveSchemaVersion(bytes32,bytes32)'],
-        )
-      ) {
-        return new BadRequestException('Schema não possui versão ativa');
-      }
-
-      if (
-        errorData.startsWith(
-          SCHEMA_REGISTRY_SELECTORS[
-            'SchemaHasNoActiveVersion(bytes32,bytes32)'
-          ],
-        )
-      ) {
-        return new BadRequestException(
-          'Schema não possui versão ativa no momento',
-        );
-      }
-
       if (
         errorData.startsWith(
           SCHEMA_REGISTRY_SELECTORS['SchemaNotActive(bytes32,bytes32,uint8)'],
@@ -201,7 +180,14 @@ export class ContractErrorHandler {
         return new ConflictException('Schema já está inativo');
       }
 
-      // Permission Errors
+      if (
+        errorData.startsWith(
+          SCHEMA_REGISTRY_SELECTORS['NoActiveSchemaVersion(bytes32,bytes32)'],
+        )
+      ) {
+        return new BadRequestException('Schema não possui versão ativa');
+      }
+
       if (
         errorData.startsWith(
           SCHEMA_REGISTRY_SELECTORS['NotSchemaOwner(bytes32,bytes32,address)'],
@@ -209,6 +195,16 @@ export class ContractErrorHandler {
       ) {
         return new UnauthorizedException(
           'Apenas o proprietário do schema pode realizar esta operação',
+        );
+      }
+
+      if (
+        errorData.startsWith(
+          SCHEMA_REGISTRY_SELECTORS['InvalidStatusTransition(uint8,uint8)'],
+        )
+      ) {
+        return new UnauthorizedException(
+          'Status inválido para essa transição de status',
         );
       }
 

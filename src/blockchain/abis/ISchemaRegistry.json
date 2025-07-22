@@ -20,6 +20,22 @@
       "type": "error"
     },
     {
+      "inputs": [
+        {
+          "internalType": "enum ISchemaRegistry.SchemaStatus",
+          "name": "current",
+          "type": "uint8"
+        },
+        {
+          "internalType": "enum ISchemaRegistry.SchemaStatus",
+          "name": "newStatus",
+          "type": "uint8"
+        }
+      ],
+      "name": "InvalidStatusTransition",
+      "type": "error"
+    },
+    {
       "inputs": [],
       "name": "InvalidVersion",
       "type": "error"
@@ -199,7 +215,7 @@
         {
           "indexed": true,
           "internalType": "bytes32",
-          "name": "schemaId",
+          "name": "id",
           "type": "bytes32"
         },
         {
@@ -209,13 +225,13 @@
           "type": "string"
         },
         {
-          "indexed": true,
+          "indexed": false,
           "internalType": "uint256",
           "name": "version",
           "type": "uint256"
         },
         {
-          "indexed": false,
+          "indexed": true,
           "internalType": "address",
           "name": "owner",
           "type": "address"
@@ -242,69 +258,38 @@
         {
           "indexed": true,
           "internalType": "bytes32",
-          "name": "schemaId",
+          "name": "id",
           "type": "bytes32"
         },
         {
-          "indexed": false,
+          "indexed": true,
           "internalType": "uint256",
           "name": "version",
           "type": "uint256"
-        },
-        {
-          "indexed": true,
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
         },
         {
           "indexed": true,
           "internalType": "bytes32",
           "name": "channelName",
           "type": "bytes32"
-        },
-        {
-          "indexed": false,
-          "internalType": "uint256",
-          "name": "timestamp",
-          "type": "uint256"
-        }
-      ],
-      "name": "SchemaDeprecated",
-      "type": "event"
-    },
-    {
-      "anonymous": false,
-      "inputs": [
-        {
-          "indexed": true,
-          "internalType": "bytes32",
-          "name": "schemaId",
-          "type": "bytes32"
-        },
-        {
-          "indexed": true,
-          "internalType": "uint256",
-          "name": "version",
-          "type": "uint256"
         },
         {
           "indexed": false,
           "internalType": "enum ISchemaRegistry.SchemaStatus",
-          "name": "status",
+          "name": "oldStatus",
           "type": "uint8"
         },
         {
-          "indexed": true,
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
+          "indexed": false,
+          "internalType": "enum ISchemaRegistry.SchemaStatus",
+          "name": "newStatus",
+          "type": "uint8"
         },
         {
           "indexed": false,
-          "internalType": "bytes32",
-          "name": "channelName",
-          "type": "bytes32"
+          "internalType": "address",
+          "name": "updatedBy",
+          "type": "address"
         },
         {
           "indexed": false,
@@ -313,7 +298,7 @@
           "type": "uint256"
         }
       ],
-      "name": "SchemaInactivated",
+      "name": "SchemaStatusChanged",
       "type": "event"
     },
     {
@@ -322,11 +307,11 @@
         {
           "indexed": true,
           "internalType": "bytes32",
-          "name": "schemaId",
+          "name": "id",
           "type": "bytes32"
         },
         {
-          "indexed": false,
+          "indexed": true,
           "internalType": "uint256",
           "name": "previousVersion",
           "type": "uint256"
@@ -338,7 +323,7 @@
           "type": "uint256"
         },
         {
-          "indexed": true,
+          "indexed": false,
           "internalType": "address",
           "name": "owner",
           "type": "address"
@@ -507,6 +492,82 @@
         }
       ],
       "name": "getLatestSchema",
+      "outputs": [
+        {
+          "components": [
+            {
+              "internalType": "bytes32",
+              "name": "id",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "string",
+              "name": "name",
+              "type": "string"
+            },
+            {
+              "internalType": "uint256",
+              "name": "version",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "dataHash",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "address",
+              "name": "owner",
+              "type": "address"
+            },
+            {
+              "internalType": "bytes32",
+              "name": "channelName",
+              "type": "bytes32"
+            },
+            {
+              "internalType": "enum ISchemaRegistry.SchemaStatus",
+              "name": "status",
+              "type": "uint8"
+            },
+            {
+              "internalType": "uint256",
+              "name": "createdAt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "updatedAt",
+              "type": "uint256"
+            },
+            {
+              "internalType": "string",
+              "name": "description",
+              "type": "string"
+            }
+          ],
+          "internalType": "struct ISchemaRegistry.Schema",
+          "name": "schema",
+          "type": "tuple"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "channelName",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "schemaId",
+          "type": "bytes32"
+        }
+      ],
+      "name": "getSchema",
       "outputs": [
         {
           "components": [
@@ -794,6 +855,34 @@
         }
       ],
       "name": "inactivateSchema",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "bytes32",
+          "name": "schemaId",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "uint256",
+          "name": "version",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "channelName",
+          "type": "bytes32"
+        },
+        {
+          "internalType": "enum ISchemaRegistry.SchemaStatus",
+          "name": "newStatus",
+          "type": "uint8"
+        }
+      ],
+      "name": "setSchemaStatus",
       "outputs": [],
       "stateMutability": "nonpayable",
       "type": "function"

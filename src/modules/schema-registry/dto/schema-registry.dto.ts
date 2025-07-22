@@ -7,7 +7,10 @@ import {
   IsOptional,
   IsNumber,
   Min,
+  IsEnum,
+  IsIn,
 } from 'class-validator';
+import { Transform } from 'class-transformer';
 
 // Constants for better maintainability
 const CHANNEL_NAME_REGEX = /^[a-zA-Z0-9_-]+$/;
@@ -181,6 +184,66 @@ export enum SchemaStatus {
   INACTIVE = 2,
 }
 
+// String representations for API input
+export const SCHEMA_STATUS_STRINGS = [
+  'ACTIVE',
+  'DEPRECATED',
+  'INACTIVE',
+] as const;
+export type SchemaStatusString = (typeof SCHEMA_STATUS_STRINGS)[number];
+
+// Utility class for status conversion
+export class SchemaStatusConverter {
+  static stringToEnum(statusString: string): SchemaStatus {
+    const upperStatus = statusString.toUpperCase();
+    switch (upperStatus) {
+      case 'ACTIVE':
+        return SchemaStatus.ACTIVE;
+      case 'DEPRECATED':
+        return SchemaStatus.DEPRECATED;
+      case 'INACTIVE':
+        return SchemaStatus.INACTIVE;
+      default:
+        throw new Error(`Invalid schema status: ${statusString}`);
+    }
+  }
+
+  static enumToString(status: SchemaStatus): string {
+    switch (status) {
+      case SchemaStatus.ACTIVE:
+        return 'ACTIVE';
+      case SchemaStatus.DEPRECATED:
+        return 'DEPRECATED';
+      case SchemaStatus.INACTIVE:
+        return 'INACTIVE';
+      default:
+        throw new Error(`Invalid schema status enum: ${status as string}`);
+    }
+  }
+
+  static isValidStatusString(status: string): boolean {
+    return SCHEMA_STATUS_STRINGS.includes(
+      status.toUpperCase() as SchemaStatusString,
+    );
+  }
+}
+
+function SchemaStatusValidation() {
+  return function (target: any, propertyKey: string) {
+    ApiProperty({
+      description: 'Status do schema',
+      enum: SCHEMA_STATUS_STRINGS,
+      example: 'ACTIVE',
+      type: 'string',
+    })(target, propertyKey);
+
+    // Validate that the input string is valid
+    IsIn(SCHEMA_STATUS_STRINGS, {
+      message: 'status deve ser um dos valores: ACTIVE, DEPRECATED, INACTIVE',
+    })(target, propertyKey);
+  };
+}
+
 // =============================================================
 //                    INPUT DTOs
 // =============================================================
@@ -233,6 +296,20 @@ export class InactivateSchemaDto {
 
   @ChannelNameValidation()
   channelName: string;
+}
+
+export class SetSchemaStatusDto {
+  @SchemaIdValidation()
+  schemaId: string;
+
+  @VersionValidation()
+  version: number;
+
+  @ChannelNameValidation()
+  channelName: string;
+
+  @SchemaStatusValidation()
+  status: SchemaStatus;
 }
 
 // =============================================================
@@ -344,10 +421,50 @@ export class InactivateSchemaResponseDto extends BaseSchemaResponseDto {
 
   @ApiProperty({
     description: 'Status anterior da versão',
-    enum: SchemaStatus,
-    example: SchemaStatus.ACTIVE,
+    enum: SCHEMA_STATUS_STRINGS,
+    example: 'ACTIVE',
   })
-  previousStatus: SchemaStatus;
+  previousStatus: string;
+
+  @ApiProperty({
+    description: 'Nome do canal',
+    example: 'my-awesome-channel',
+  })
+  channelName: string;
+
+  @ApiProperty({
+    description: 'Endereço do proprietário do schema',
+    example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
+  })
+  owner: string;
+}
+
+export class SetSchemaStatusResponseDto extends BaseSchemaResponseDto {
+  @ApiProperty({
+    description: 'ID do schema cambiado de status',
+    example: 'user-profile-schema',
+  })
+  schemaId: string;
+
+  @ApiProperty({
+    description: 'Versão do schema cambiado de status',
+    example: 2,
+  })
+  inactivatedVersion: number;
+
+  @ApiProperty({
+    description: 'Status anterior da versão',
+    enum: SCHEMA_STATUS_STRINGS,
+    example: 'ACTIVE',
+  })
+  previousStatus: string;
+
+  @ApiProperty({
+    description: 'Status atual da versão',
+    enum: SchemaStatus,
+    example: SchemaStatus.DEPRECATED,
+  })
+  currentStatus: SchemaStatus;
 
   @ApiProperty({
     description: 'Nome do canal',

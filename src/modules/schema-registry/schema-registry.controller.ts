@@ -30,6 +30,8 @@ import {
   GetSchemaByVersionDto,
   GetLatestSchemaResponseDto,
   GetSchemaVersionsResponseDto,
+  SetSchemaStatusDto,
+  SetSchemaStatusResponseDto,
 } from './dto/schema-registry.dto';
 import { PrivateKey } from '../../common/decorators/wallet.decorator';
 
@@ -326,12 +328,14 @@ export class SchemaRegistryController {
   }
 
   /**
-   * Get active schema
+   * Set Schema Status
    */
-  @Get('schemas/:channelName/:schemaId/active')
+  @Post('schemas/setStatus')
+  @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Obter schema ativo',
-    description: 'Retorna a versão ativa de um schema específico.',
+    summary: 'Definir status de um schema',
+    description:
+      'Define o status de um schema existente baseado em sua versão.',
   })
   @ApiHeader({
     name: 'x-private-key',
@@ -339,6 +343,69 @@ export class SchemaRegistryController {
     required: true,
     example:
       '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'Schema atualizado seu status com sucesso',
+    type: SetSchemaStatusResponseDto,
+  })
+  @ApiResponse({
+    status: 400,
+    description: 'Dados inválidos ou erro na transação',
+    examples: {
+      'schema-status-already-defined': {
+        summary: 'Status já definido',
+        value: {
+          statusCode: 400,
+          message: 'Status já definido',
+          error: 'Bad Request',
+        },
+      },
+      'invalid-version': {
+        summary: 'Versão inválida',
+        value: {
+          statusCode: 400,
+          message: 'Versão deve ser maior que 0',
+          error: 'Bad Request',
+        },
+      },
+    },
+  })
+  @ApiResponse({
+    status: 401,
+    description: 'Não autorizado',
+    example: {
+      statusCode: 401,
+      message: 'Apenas o proprietário do schema pode realizar esta operação',
+      error: 'Unauthorized',
+    },
+  })
+  @ApiResponse({
+    status: 404,
+    description: 'Schema ou versão não encontrada',
+    example: {
+      statusCode: 404,
+      message: 'Versão do schema não encontrada no canal',
+      error: 'Not Found',
+    },
+  })
+  async setSchemaStatus(
+    @Body() setSchemaStatusDto: SetSchemaStatusDto,
+    @PrivateKey() privateKey: string,
+  ): Promise<SetSchemaStatusResponseDto> {
+    return await this.schemaRegistryService.setSchemaStatus(
+      setSchemaStatusDto,
+      privateKey,
+    );
+  }
+
+  /**
+   * Get active schema
+   */
+  @Get('schemas/:channelName/:schemaId/active')
+  @ApiOperation({
+    summary: 'Obter schema ativo',
+    description: 'Retorna a versão ativa de um schema específico.',
   })
   @ApiParam({
     name: 'channelName',
@@ -365,15 +432,6 @@ export class SchemaRegistryController {
     },
   })
   @ApiResponse({
-    status: 401,
-    description: 'Usuário não é membro do canal',
-    example: {
-      statusCode: 401,
-      message: 'Usuário não é membro do canal especificado',
-      error: 'Unauthorized',
-    },
-  })
-  @ApiResponse({
     status: 404,
     description: 'Schema não encontrado',
     example: {
@@ -385,13 +443,9 @@ export class SchemaRegistryController {
   async getActiveSchema(
     @Param('channelName') channelName: string,
     @Param('schemaId') schemaId: string,
-    @PrivateKey() privateKey: string,
   ): Promise<SchemaDto> {
     const getSchemaDto: GetSchemaDto = { channelName, schemaId };
-    return await this.schemaRegistryService.getActiveSchema(
-      getSchemaDto,
-      privateKey,
-    );
+    return await this.schemaRegistryService.getActiveSchema(getSchemaDto);
   }
 
   /**
@@ -402,13 +456,6 @@ export class SchemaRegistryController {
     summary: 'Obter o schema mais recente',
     description:
       'Retorna a versão mais recente do schema (independente do status ativo/inativo).',
-  })
-  @ApiHeader({
-    name: 'x-private-key',
-    description: 'Chave privada da wallet (64 caracteres hexadecimais)',
-    required: true,
-    example:
-      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
   })
   @ApiParam({
     name: 'channelName',
@@ -426,15 +473,6 @@ export class SchemaRegistryController {
     type: SchemaDto,
   })
   @ApiResponse({
-    status: 401,
-    description: 'Usuário não é membro do canal',
-    example: {
-      statusCode: 401,
-      message: 'Usuário não é membro do canal especificado',
-      error: 'Unauthorized',
-    },
-  })
-  @ApiResponse({
     status: 404,
     description: 'Schema não encontrado',
     example: {
@@ -446,16 +484,12 @@ export class SchemaRegistryController {
   async getLatestSchema(
     @Param('channelName') channelName: string,
     @Param('schemaId') schemaId: string,
-    @PrivateKey() privateKey: string,
   ): Promise<GetLatestSchemaResponseDto> {
     const getSchemaDto: GetSchemaDto = {
       channelName,
       schemaId,
     };
-    return await this.schemaRegistryService.getLatestSchema(
-      getSchemaDto,
-      privateKey,
-    );
+    return await this.schemaRegistryService.getLatestSchema(getSchemaDto);
   }
 
   /**
@@ -466,13 +500,6 @@ export class SchemaRegistryController {
     summary: 'Obter informações do schema',
     description:
       'Retorna informações resumidas sobre um schema (versões, status, proprietário).',
-  })
-  @ApiHeader({
-    name: 'x-private-key',
-    description: 'Chave privada da wallet (64 caracteres hexadecimais)',
-    required: true,
-    example:
-      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
   })
   @ApiParam({
     name: 'channelName',
@@ -490,15 +517,6 @@ export class SchemaRegistryController {
     type: SchemaInfoResponseDto,
   })
   @ApiResponse({
-    status: 401,
-    description: 'Usuário não é membro do canal',
-    example: {
-      statusCode: 401,
-      message: 'Usuário não é membro do canal especificado',
-      error: 'Unauthorized',
-    },
-  })
-  @ApiResponse({
     status: 404,
     description: 'Schema não encontrado',
     example: {
@@ -510,13 +528,9 @@ export class SchemaRegistryController {
   async getSchemaInfo(
     @Param('channelName') channelName: string,
     @Param('schemaId') schemaId: string,
-    @PrivateKey() privateKey: string,
   ): Promise<SchemaInfoResponseDto> {
     const getSchemaDto: GetSchemaDto = { channelName, schemaId };
-    return await this.schemaRegistryService.getSchemaInfo(
-      getSchemaDto,
-      privateKey,
-    );
+    return await this.schemaRegistryService.getSchemaInfo(getSchemaDto);
   }
 
   /**
@@ -568,13 +582,6 @@ export class SchemaRegistryController {
     summary: 'Obter schema por versão',
     description: 'Retorna o schema de uma versão específica.',
   })
-  @ApiHeader({
-    name: 'x-private-key',
-    description: 'Chave privada da wallet (64 caracteres hexadecimais)',
-    required: true,
-    example:
-      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-  })
   @ApiParam({
     name: 'channelName',
     description: 'Nome do canal',
@@ -605,15 +612,6 @@ export class SchemaRegistryController {
     },
   })
   @ApiResponse({
-    status: 401,
-    description: 'Usuário não é membro do canal',
-    example: {
-      statusCode: 401,
-      message: 'Usuário não é membro do canal especificado',
-      error: 'Unauthorized',
-    },
-  })
-  @ApiResponse({
     status: 404,
     description: 'Schema ou versão não encontrado',
     example: {
@@ -626,7 +624,6 @@ export class SchemaRegistryController {
     @Param('channelName') channelName: string,
     @Param('schemaId') schemaId: string,
     @Param('version') version: string,
-    @PrivateKey() privateKey: string,
   ): Promise<SchemaDto> {
     const getSchemaByVersionDto: GetSchemaByVersionDto = {
       channelName,
@@ -635,7 +632,6 @@ export class SchemaRegistryController {
     };
     return await this.schemaRegistryService.getSchemaByVersion(
       getSchemaByVersionDto,
-      privateKey,
     );
   }
 }

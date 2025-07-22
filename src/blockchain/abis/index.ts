@@ -1,11 +1,13 @@
-import AddressDiscoveryABI from './AddressDiscovery.json';
-import AccessChannelManagerABI from './AccessChannelManager.json';
-import SchemaRegistryABI from './SchemaRegistry.json';
+import AddressDiscoveryABI from './IAddressDiscovery.json';
+import AccessChannelManagerABI from './IAccessChannelManager.json';
+import SchemaRegistryABI from './ISchemaRegistry.json';
+import ProcessRegistryABI from './IProcessRegistry.json';
 
 export const ABIs = {
   AddressDiscovery: AddressDiscoveryABI,
   AccessChannelManager: AccessChannelManagerABI,
   SchemaRegistry: SchemaRegistryABI,
+  ProcessRegistry: ProcessRegistryABI,
 } as const;
 
 export type ABIName = keyof typeof ABIs;

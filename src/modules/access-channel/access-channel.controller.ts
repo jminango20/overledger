@@ -129,7 +129,7 @@ export class AccessChannelController {
   /**
    * Deactivate a channel
    */
-  @Post('channels/deactivate')
+  @Post('channels/desactivate')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Desativa um canal',
@@ -156,11 +156,11 @@ export class AccessChannelController {
       error: 'Bad Request',
     },
   })
-  async deactivateChannel(
+  async desactivateChannel(
     @Body() deactivateChannelDto: DeactivateChannelDto,
     @PrivateKey() privateKey: string,
   ): Promise<DeactivateChannelResponseDto> {
-    return await this.accessChannelService.deactivateChannel(
+    return await this.accessChannelService.desactivateChannel(
       deactivateChannelDto,
       privateKey,
     );

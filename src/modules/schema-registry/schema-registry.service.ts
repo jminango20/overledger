@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { ethers } from 'ethers';
+import { ethers, N } from 'ethers';
 import {
   CreateSchemaDto,
   CreateSchemaResponseDto,
@@ -18,6 +18,9 @@ import {
   GetSchemaByVersionDto,
   GetLatestSchemaResponseDto,
   GetSchemaVersionsResponseDto,
+  SetSchemaStatusDto,
+  SetSchemaStatusResponseDto,
+  SchemaStatusConverter,
 } from './dto/schema-registry.dto';
 import { BlockchainProvider } from '../../blockchain/providers/blockchain.provider';
 import { ContractErrorHandler } from '../../common/utils/contract-error.handler';
@@ -256,18 +259,82 @@ export class SchemaRegistryService {
   }
 
   /**
+   * Set the status of a specific version of a schema
+   */
+  async setSchemaStatus(
+    setSchemaStatusDto: SetSchemaStatusDto,
+    privateKey: string,
+  ): Promise<SetSchemaStatusResponseDto> {
+    if (!setSchemaStatusDto.schemaId?.trim()) {
+      throw new BadRequestException('ID do schema é obrigatório');
+    }
+
+    if (!setSchemaStatusDto.channelName?.trim()) {
+      throw new BadRequestException('Nome do canal é obrigatório');
+    }
+
+    if (!setSchemaStatusDto.version || setSchemaStatusDto.version < 1) {
+      throw new BadRequestException('Versão deve ser maior que 0');
+    }
+
+    return this.executeSetSchemaStatusOperation(
+      'setSchemaStatus',
+      setSchemaStatusDto.schemaId,
+      setSchemaStatusDto.channelName,
+      setSchemaStatusDto.version,
+      setSchemaStatusDto.status,
+      privateKey,
+      async (contract) => {
+        const schemaIdBytes32 = this.blockchainProvider.stringToBytes32(
+          setSchemaStatusDto.schemaId,
+        );
+        const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
+          setSchemaStatusDto.channelName,
+        );
+
+        const statusEnum = SchemaStatusConverter.stringToEnum(
+          String(setSchemaStatusDto.status),
+        );
+
+        this.logger.debug(`Chamando setSchemaStatus com:`, {
+          schemaId: setSchemaStatusDto.schemaId,
+          version: setSchemaStatusDto.version,
+          channelName: setSchemaStatusDto.channelName,
+          statusEnum,
+        });
+
+        const tx = await contract.setSchemaStatus(
+          schemaIdBytes32,
+          setSchemaStatusDto.version,
+          channelNameBytes32,
+          statusEnum,
+        );
+
+        return {
+          tx,
+          schemaId: setSchemaStatusDto.schemaId,
+          version: setSchemaStatusDto.version,
+          channelName: setSchemaStatusDto.channelName,
+          status: setSchemaStatusDto.status,
+        };
+      },
+    );
+  }
+
+  /**
    * Get schema by version
    */
   async getSchemaByVersion(
     getSchemaByVersionDto: GetSchemaByVersionDto,
-    privateKey: string,
   ): Promise<SchemaDto> {
     this.logger.log(
       `Buscando schema ${getSchemaByVersionDto.schemaId} por versão: ${getSchemaByVersionDto.version} no canal ${getSchemaByVersionDto.channelName}`,
     );
 
     try {
-      const contract = await this.getSchemaRegistryContract(privateKey);
+      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
+
+      const contract = await this.getSchemaRegistryContract(tempPrivateKey);
 
       const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
         getSchemaByVersionDto.channelName,
@@ -304,16 +371,15 @@ export class SchemaRegistryService {
   /**
    * Get active schema
    */
-  async getActiveSchema(
-    getSchemaDto: GetSchemaDto,
-    privateKey: string,
-  ): Promise<SchemaDto> {
+  async getActiveSchema(getSchemaDto: GetSchemaDto): Promise<SchemaDto> {
     this.logger.log(
       `Buscando schema ativo: ${getSchemaDto.schemaId} no canal ${getSchemaDto.channelName}`,
     );
 
     try {
-      const contract = await this.getSchemaRegistryContract(privateKey);
+      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
+
+      const contract = await this.getSchemaRegistryContract(tempPrivateKey);
 
       const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
         getSchemaDto.channelName,
@@ -354,14 +420,14 @@ export class SchemaRegistryService {
    */
   async getLatestSchema(
     getSchemaDto: GetSchemaDto,
-    privateKey: string,
   ): Promise<GetLatestSchemaResponseDto> {
     this.logger.log(
       `Buscando o schema mais recente: ${getSchemaDto.schemaId} no canal ${getSchemaDto.channelName}`,
     );
 
     try {
-      const contract = await this.getSchemaRegistryContract(privateKey);
+      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
+      const contract = await this.getSchemaRegistryContract(tempPrivateKey);
 
       const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
         getSchemaDto.channelName,
@@ -491,14 +557,15 @@ export class SchemaRegistryService {
    */
   async getSchemaInfo(
     getSchemaDto: GetSchemaDto,
-    privateKey: string,
   ): Promise<SchemaInfoResponseDto> {
     this.logger.log(
       `Buscando informações do schema: ${getSchemaDto.schemaId} no canal ${getSchemaDto.channelName}`,
     );
 
     try {
-      const contract = await this.getSchemaRegistryContract(privateKey);
+      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
+
+      const contract = await this.getSchemaRegistryContract(tempPrivateKey);
 
       const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
         getSchemaDto.channelName,
@@ -661,29 +728,24 @@ export class SchemaRegistryService {
       const receipt = await tx.wait();
       this.logger.log(`Transação confirmada no bloco: ${receipt?.blockNumber}`);
 
-      // Extrair informações do evento SchemaDeprecated
+      // Extrair informações do evento SchemaStatusChanged
       const schemaDeprecatedEvent = receipt?.logs?.find(
         (log) =>
           log.topics[0] ===
           ethers.id(
-            'SchemaDeprecated(bytes32,uint256,address,bytes32,uint256)',
+            'SchemaStatusChanged(bytes32,uint256,bytes32,uint8,uint8,address,uint256)',
           ),
       );
 
       let deprecatedVersion = 0;
 
-      if (schemaDeprecatedEvent && schemaDeprecatedEvent.data) {
+      if (schemaDeprecatedEvent) {
         try {
-          // Decodificar o evento SchemaDeprecated
-          const abiCoder = ethers.AbiCoder.defaultAbiCoder();
-          const decoded = abiCoder.decode(
-            ['uint256', 'bytes32', 'uint256'],
-            schemaDeprecatedEvent.data,
-          );
-          deprecatedVersion = Number(decoded[0]);
+          // Decodificar o evento SchemaStatusChanged
+          deprecatedVersion = Number(BigInt(schemaDeprecatedEvent.topics[2]));
         } catch (decodeError) {
           this.logger.warn(
-            'Erro ao decodificar evento SchemaDeprecated:',
+            'Erro ao decodificar evento SchemaStatusChanged:',
             decodeError.message,
           );
           deprecatedVersion = 1;
@@ -862,7 +924,7 @@ export class SchemaRegistryService {
         (log) =>
           log.topics[0] ===
           ethers.id(
-            'SchemaInactivated(bytes32,uint256,uint8,address,bytes32,uint256)',
+            'SchemaStatusChanged(bytes32,uint256,bytes32,uint8,uint8,address,uint256)',
           ),
       );
 
@@ -873,13 +935,13 @@ export class SchemaRegistryService {
           // Decodificar o evento SchemaInactivated
           const abiCoder = ethers.AbiCoder.defaultAbiCoder();
           const decoded = abiCoder.decode(
-            ['uint8', 'bytes32', 'uint256'],
+            ['uint8', 'uint8', 'address', 'uint256'],
             schemaInactivatedEvent.data,
           );
           previousStatus = Number(decoded[0]) as SchemaStatus;
         } catch (decodeError) {
           this.logger.warn(
-            'Erro ao decodificar evento SchemaInactivated:',
+            'Erro ao decodificar evento SchemaStatusChanged:',
             decodeError.message,
           );
         }
@@ -895,7 +957,108 @@ export class SchemaRegistryService {
         transactionHash: tx.hash,
         schemaId: responseSchemaId,
         inactivatedVersion: responseVersion,
-        previousStatus,
+        previousStatus: SchemaStatusConverter.enumToString(previousStatus),
+        channelName: responseChannelName,
+        owner: walletAddress,
+        blockNumber: receipt?.blockNumber,
+        gasUsed: receipt?.gasUsed?.toString(),
+      };
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      this.logger.error(
+        `[${operationName}] Falhou após ${duration}ms:`,
+        error.message,
+      );
+      return this.handleContractError(
+        error,
+        operationName,
+        schemaId,
+        channelName,
+      );
+    }
+  }
+
+  /**
+   * Set schema status operation
+   */
+  private async executeSetSchemaStatusOperation(
+    operationName: string,
+    schemaId: string,
+    channelName: string,
+    version: number,
+    status: SchemaStatus,
+    privateKey: string,
+    operation: (contract: ethers.Contract) => Promise<{
+      tx: ethers.ContractTransactionResponse;
+      schemaId: string;
+      version: number;
+      channelName: string;
+      status: SchemaStatus;
+    }>,
+  ): Promise<SetSchemaStatusResponseDto> {
+    const startTime = Date.now();
+    this.logger.log(
+      `[${operationName}] Iniciando para schema: ${schemaId} versão: ${version} no canal: ${channelName}`,
+    );
+
+    try {
+      const contract = await this.getSchemaRegistryContract(privateKey);
+      const walletAddress =
+        await this.blockchainProvider.getWalletAddress(privateKey);
+
+      const {
+        tx,
+        schemaId: responseSchemaId,
+        version: responseVersion,
+        channelName: responseChannelName,
+        status: responseStatus,
+      } = await operation(contract);
+
+      this.logger.log(`Transação enviada: ${tx.hash}`);
+
+      const receipt = await tx.wait();
+      this.logger.log(`Transação confirmada no bloco: ${receipt?.blockNumber}`);
+
+      // Extrair informações do evento SchemaStatusChanged
+      const schemaInactivatedEvent = receipt?.logs?.find(
+        (log) =>
+          log.topics[0] ===
+          ethers.id(
+            'SchemaStatusChanged(bytes32,uint256,bytes32,uint8,uint8,address,uint256)',
+          ),
+      );
+
+      let previousStatus = SchemaStatus.ACTIVE; // Default
+
+      if (schemaInactivatedEvent && schemaInactivatedEvent.data) {
+        try {
+          // Decodificar o evento SchemaStatusChanged
+          const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+          const decoded = abiCoder.decode(
+            ['uint8', 'bytes32', 'uint256'],
+            schemaInactivatedEvent.data,
+          );
+          previousStatus = Number(decoded[0]) as SchemaStatus;
+        } catch (decodeError) {
+          this.logger.warn(
+            'Erro ao decodificar evento SchemaStatusChanged:',
+            decodeError.message,
+          );
+        }
+      }
+
+      const duration = Date.now() - startTime;
+      this.logger.log(
+        `[${operationName}] Concluído em ${duration}ms - TxHash: ${tx.hash}`,
+      );
+
+      return {
+        success: true,
+        transactionHash: tx.hash,
+        schemaId: responseSchemaId,
+        inactivatedVersion: responseVersion,
+        previousStatus: SchemaStatusConverter.enumToString(previousStatus),
+        currentStatus: responseStatus,
         channelName: responseChannelName,
         owner: walletAddress,
         blockNumber: receipt?.blockNumber,

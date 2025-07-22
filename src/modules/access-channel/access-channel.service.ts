@@ -83,7 +83,7 @@ export class AccessChannelService {
   /**
    * Desactivate a channel
    */
-  async deactivateChannel(
+  async desactivateChannel(
     deactivateChannelDto: DeactivateChannelDto,
     privateKey: string,
   ): Promise<DeactivateChannelResponseDto> {

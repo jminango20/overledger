@@ -9,6 +9,7 @@ export {
   InactivateSchemaDto,
   GetSchemaDto,
   GetSchemaByVersionDto,
+  SetSchemaStatusDto,
 
   // Response DTOs
   CreateSchemaResponseDto,
@@ -19,6 +20,7 @@ export {
   GetSchemaVersionsResponseDto,
   SchemaDto,
   SchemaInfoResponseDto,
+  SetSchemaStatusResponseDto,
 
   // Interfaces
   SchemaInputContract,
