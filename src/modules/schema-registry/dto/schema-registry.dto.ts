@@ -7,10 +7,8 @@ import {
   IsOptional,
   IsNumber,
   Min,
-  IsEnum,
   IsIn,
 } from 'class-validator';
-import { Transform } from 'class-transformer';
 
 // Constants for better maintainability
 const CHANNEL_NAME_REGEX = /^[a-zA-Z0-9_-]+$/;

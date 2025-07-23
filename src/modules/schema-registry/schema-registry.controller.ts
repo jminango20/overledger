@@ -330,10 +330,10 @@ export class SchemaRegistryController {
   /**
    * Set Schema Status
    */
-  @Post('schemas/setStatus')
+  @Post('schemas/status')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Definir status de um schema',
+    summary: 'Atualizar status do schema',
     description:
       'Define o status de um schema existente baseado em sua versão.',
   })

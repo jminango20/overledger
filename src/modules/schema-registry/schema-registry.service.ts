@@ -32,7 +32,14 @@ export class SchemaRegistryService {
   private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
   private static readonly MAX_CACHE_SIZE = 100;
   private readonly cacheTimestamps = new Map<string, number>();
-  private readonly contractAddressCache = new Map<string, string>();
+  private readonly contractAddressCache = new Map<
+    string,
+    {
+      address: string;
+      timestamp: number;
+      network: string;
+    }
+  >();
 
   constructor(private readonly blockchainProvider: BlockchainProvider) {
     this.SCHEMA_REGISTRY_BYTES32 =
@@ -1109,34 +1116,35 @@ export class SchemaRegistryService {
   private async getSchemaRegistryContract(
     privateKey: string,
   ): Promise<ethers.Contract> {
-    const cacheKey = privateKey.slice(0, 10);
+    const network = await this.blockchainProvider.provider.getNetwork();
+    const cacheKey = `process_registry_${network.chainId}`;
     const now = Date.now();
 
-    const cacheTime = this.cacheTimestamps.get(cacheKey);
+    let cached = this.contractAddressCache.get(cacheKey);
     const isExpired =
-      !cacheTime || now - cacheTime > SchemaRegistryService.CACHE_TTL;
+      !cached || now - cached.timestamp > SchemaRegistryService.CACHE_TTL;
 
-    let contractAddress = this.contractAddressCache.get(cacheKey);
-
-    if (!contractAddress || isExpired) {
+    if (!cached || isExpired) {
       const addressDiscoveryContract = this.blockchainProvider.getContract(
         'AddressDiscovery',
         privateKey,
       );
 
-      const discoveredAddress =
-        await addressDiscoveryContract.getContractAddress(
-          this.SCHEMA_REGISTRY_BYTES32,
-        );
+      const contractAddress = await addressDiscoveryContract.getContractAddress(
+        this.SCHEMA_REGISTRY_BYTES32,
+      );
 
-      if (!discoveredAddress) {
-        throw new Error('SchemaRegistry contract address not found');
+      if (!contractAddress) {
+        throw new Error('Erro ao obter endereço do SchemaRegistry');
       }
 
-      contractAddress = discoveredAddress;
+      const newCacheEntry = {
+        address: contractAddress,
+        timestamp: now,
+        network: network.name,
+      };
 
-      this.contractAddressCache.set(cacheKey, contractAddress as string);
-      this.cacheTimestamps.set(cacheKey, now);
+      this.contractAddressCache.set(cacheKey, newCacheEntry);
 
       if (
         this.contractAddressCache.size > SchemaRegistryService.MAX_CACHE_SIZE
@@ -1145,12 +1153,14 @@ export class SchemaRegistryService {
       }
 
       this.logger.debug(`Endereço SchemaRegistry cached: ${contractAddress}`);
+
+      cached = newCacheEntry;
     }
 
     return this.blockchainProvider.getContract(
       'SchemaRegistry',
       privateKey,
-      contractAddress,
+      cached.address,
     );
   }
 
@@ -1210,9 +1220,10 @@ export class SchemaRegistryService {
     throw error;
   }
 
-  /**
-   * Clean address cache
-   */
+  // =============================================================
+  //                    CACHE MANAGEMENT
+  // =============================================================
+
   public clearAddressCache(): void {
     const beforeSize = this.contractAddressCache.size;
     this.contractAddressCache.clear();
