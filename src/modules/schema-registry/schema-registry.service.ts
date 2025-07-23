@@ -1,5 +1,5 @@
 import { Injectable, Logger, BadRequestException } from '@nestjs/common';
-import { ethers, N } from 'ethers';
+import { ethers } from 'ethers';
 import {
   CreateSchemaDto,
   CreateSchemaResponseDto,
@@ -282,7 +282,6 @@ export class SchemaRegistryService {
       setSchemaStatusDto.schemaId,
       setSchemaStatusDto.channelName,
       setSchemaStatusDto.version,
-      setSchemaStatusDto.status,
       privateKey,
       async (contract) => {
         const schemaIdBytes32 = this.blockchainProvider.stringToBytes32(
@@ -660,7 +659,33 @@ export class SchemaRegistryService {
       this.logger.log(`Transação enviada: ${tx.hash}`);
 
       const receipt = await tx.wait();
-      this.logger.log(`Transação confirmada no bloco: ${receipt?.blockNumber}`);
+
+      const schemaCreatedEvent = receipt?.logs?.find(
+        (log) =>
+          log.topics[0] ===
+          ethers.id(
+            'SchemaCreated(bytes32,string,uint256,address,bytes32,uint256)',
+          ),
+      );
+
+      let eventCreatedVersion = 1; // default fallback
+
+      if (schemaCreatedEvent && schemaCreatedEvent.data) {
+        try {
+          // Parse data: version, owner, channelName, timestamp (non-indexed fields)
+          const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+          const decoded = abiCoder.decode(
+            ['uint256', 'address', 'bytes32', 'uint256'],
+            schemaCreatedEvent.data,
+          );
+          eventCreatedVersion = Number(decoded[0]);
+        } catch (decodeError) {
+          this.logger.warn(
+            'Error parsing SchemaCreated event:',
+            decodeError.message,
+          );
+        }
+      }
 
       const duration = Date.now() - startTime;
       this.logger.log(
@@ -672,7 +697,7 @@ export class SchemaRegistryService {
         transactionHash: tx.hash,
         schemaId: responseSchemaId,
         name,
-        version: 1, // Para createSchema sempre é 1
+        version: eventCreatedVersion,
         channelName: responseChannelName,
         owner: walletAddress,
         blockNumber: receipt?.blockNumber,
@@ -828,25 +853,25 @@ export class SchemaRegistryService {
 
       let previousVersion = 0;
       let newVersion = 0;
+      let eventOwner: string | undefined = undefined;
 
-      if (schemaUpdatedEvent && schemaUpdatedEvent.data) {
+      if (schemaUpdatedEvent) {
         try {
+          previousVersion = Number(schemaUpdatedEvent.topics[2]);
+          newVersion = Number(schemaUpdatedEvent.topics[3]);
+
           // Decodificar o evento SchemaUpdated
           const abiCoder = ethers.AbiCoder.defaultAbiCoder();
           const decoded = abiCoder.decode(
-            ['uint256', 'bytes32', 'uint256'],
+            ['address', 'bytes32', 'uint256'],
             schemaUpdatedEvent.data,
           );
-          previousVersion = Number(decoded[0]);
-          newVersion = Number(decoded[2]);
+          eventOwner = decoded[0];
         } catch (decodeError) {
           this.logger.warn(
             'Erro ao decodificar evento SchemaUpdated:',
             decodeError.message,
           );
-          // Fallback: assumir que é uma atualização da versão 1 para 2
-          previousVersion = 1;
-          newVersion = 2;
         }
       }
 
@@ -862,7 +887,7 @@ export class SchemaRegistryService {
         previousVersion,
         newVersion,
         channelName: responseChannelName,
-        owner: walletAddress,
+        owner: eventOwner ?? walletAddress,
         blockNumber: receipt?.blockNumber,
         gasUsed: receipt?.gasUsed?.toString(),
       };
@@ -986,7 +1011,6 @@ export class SchemaRegistryService {
     schemaId: string,
     channelName: string,
     version: number,
-    status: SchemaStatus,
     privateKey: string,
     operation: (contract: ethers.Contract) => Promise<{
       tx: ethers.ContractTransactionResponse;
@@ -1020,7 +1044,7 @@ export class SchemaRegistryService {
       this.logger.log(`Transação confirmada no bloco: ${receipt?.blockNumber}`);
 
       // Extrair informações do evento SchemaStatusChanged
-      const schemaInactivatedEvent = receipt?.logs?.find(
+      const statusChangedEvent = receipt?.logs?.find(
         (log) =>
           log.topics[0] ===
           ethers.id(
@@ -1030,13 +1054,13 @@ export class SchemaRegistryService {
 
       let previousStatus = SchemaStatus.ACTIVE; // Default
 
-      if (schemaInactivatedEvent && schemaInactivatedEvent.data) {
+      if (statusChangedEvent && statusChangedEvent.data) {
         try {
           // Decodificar o evento SchemaStatusChanged
           const abiCoder = ethers.AbiCoder.defaultAbiCoder();
           const decoded = abiCoder.decode(
-            ['uint8', 'bytes32', 'uint256'],
-            schemaInactivatedEvent.data,
+            ['uint8', 'uint8', 'address', 'uint256'],
+            statusChangedEvent.data,
           );
           previousStatus = Number(decoded[0]) as SchemaStatus;
         } catch (decodeError) {

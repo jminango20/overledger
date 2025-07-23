@@ -676,3 +676,31 @@ export interface SchemaUpdateInputContract {
   channelName: string; // Será convertido para bytes32
   description: string;
 }
+
+export interface SchemaCreatedEventDto {
+  id: string;
+  name: string;
+  version: number;
+  owner: string;
+  channelName: string;
+  timestamp: number;
+}
+
+export interface SchemaUpdatedEventDto {
+  id: string;
+  previousVersion: number;
+  newVersion: number;
+  owner: string;
+  channelName: string;
+  timestamp: number;
+}
+
+export interface SchemaStatusChangedEventDto {
+  id: string;
+  version: number;
+  channelName: string;
+  oldStatus: SchemaStatus;
+  newStatus: SchemaStatus;
+  updatedBy: string;
+  timestamp: number;
+}
