@@ -6,61 +6,10 @@ import {
   NameValidation,
   DataHashValidation,
   DescriptionValidation,
+  VersionValidation,
 } from '../../../common/decorators/validation.decorators';
-
-function VersionValidation() {
-  return function (target: any, propertyKey: string) {
-    ApiProperty({
-      description: 'Versão do schema',
-      example: '1',
-      minimum: 1,
-      nullable: false,
-      required: true,
-      type: 'integer',
-    })(target, propertyKey);
-
-    IsNumber()(target, propertyKey);
-    Min(1)(target, propertyKey);
-  };
-}
-
-// Base response interface
-interface BaseTransactionResponse {
-  success: boolean;
-  transactionHash: string;
-  blockNumber?: number;
-  gasUsed?: string;
-}
-
-// Base response class
-abstract class BaseSchemaResponseDto implements BaseTransactionResponse {
-  @ApiProperty({
-    description: 'Se a operação foi bem-sucedida',
-    example: true,
-  })
-  success: boolean;
-
-  @ApiProperty({
-    description: 'Hash da transação',
-    example:
-      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-  })
-  transactionHash: string;
-
-  @ApiProperty({
-    description: 'Número do bloco onde a transação foi minerada',
-    example: 18500000,
-    required: false,
-  })
-  blockNumber?: number;
-
-  @ApiProperty({
-    description: 'Gas usado na transação',
-    example: '21000',
-    required: false,
-  })
-  gasUsed?: string;
-}
+import { BaseEnumConverter } from '../../../common/utils/enum-converter.base';
+import { BaseTransactionResponseDto } from '../../../common/dto/base-response.dto';
 
 // Schema Status Enum
 export enum SchemaStatus {
@@ -76,42 +25,6 @@ export const SCHEMA_STATUS_STRINGS = [
   'INACTIVE',
 ] as const;
 export type SchemaStatusString = (typeof SCHEMA_STATUS_STRINGS)[number];
-
-// Utility class for status conversion
-export class SchemaStatusConverter {
-  static stringToEnum(statusString: string): SchemaStatus {
-    const upperStatus = statusString.toUpperCase();
-    switch (upperStatus) {
-      case 'ACTIVE':
-        return SchemaStatus.ACTIVE;
-      case 'DEPRECATED':
-        return SchemaStatus.DEPRECATED;
-      case 'INACTIVE':
-        return SchemaStatus.INACTIVE;
-      default:
-        throw new Error(`Invalid schema status: ${statusString}`);
-    }
-  }
-
-  static enumToString(status: SchemaStatus): string {
-    switch (status) {
-      case SchemaStatus.ACTIVE:
-        return 'ACTIVE';
-      case SchemaStatus.DEPRECATED:
-        return 'DEPRECATED';
-      case SchemaStatus.INACTIVE:
-        return 'INACTIVE';
-      default:
-        throw new Error(`Invalid schema status enum: ${status as string}`);
-    }
-  }
-
-  static isValidStatusString(status: string): boolean {
-    return SCHEMA_STATUS_STRINGS.includes(
-      status.toUpperCase() as SchemaStatusString,
-    );
-  }
-}
 
 function SchemaStatusValidation() {
   return function (target: any, propertyKey: string) {
@@ -201,7 +114,7 @@ export class SetSchemaStatusDto {
 //                    RESPONSE DTOs
 // =============================================================
 
-export class CreateSchemaResponseDto extends BaseSchemaResponseDto {
+export class CreateSchemaResponseDto extends BaseTransactionResponseDto {
   @ApiProperty({
     description: 'ID do schema criado',
     example: 'user-profile-schema',
@@ -233,7 +146,7 @@ export class CreateSchemaResponseDto extends BaseSchemaResponseDto {
   owner: string;
 }
 
-export class UpdateSchemaResponseDto extends BaseSchemaResponseDto {
+export class UpdateSchemaResponseDto extends BaseTransactionResponseDto {
   @ApiProperty({
     description: 'ID do schema atualizado',
     example: 'user-profile-schema',
@@ -265,7 +178,7 @@ export class UpdateSchemaResponseDto extends BaseSchemaResponseDto {
   owner: string;
 }
 
-export class DeprecateSchemaResponseDto extends BaseSchemaResponseDto {
+export class DeprecateSchemaResponseDto extends BaseTransactionResponseDto {
   @ApiProperty({
     description: 'ID do schema depreciado',
     example: 'user-profile-schema',
@@ -291,7 +204,7 @@ export class DeprecateSchemaResponseDto extends BaseSchemaResponseDto {
   owner: string;
 }
 
-export class InactivateSchemaResponseDto extends BaseSchemaResponseDto {
+export class InactivateSchemaResponseDto extends BaseTransactionResponseDto {
   @ApiProperty({
     description: 'ID do schema inativo',
     example: 'user-profile-schema',
@@ -324,7 +237,7 @@ export class InactivateSchemaResponseDto extends BaseSchemaResponseDto {
   owner: string;
 }
 
-export class SetSchemaStatusResponseDto extends BaseSchemaResponseDto {
+export class SetSchemaStatusResponseDto extends BaseTransactionResponseDto {
   @ApiProperty({
     description: 'ID do schema cambiado de status',
     example: 'user-profile-schema',
@@ -588,4 +501,12 @@ export interface SchemaStatusChangedEventDto {
   newStatus: SchemaStatus;
   updatedBy: string;
   timestamp: number;
+}
+
+export class SchemaStatusConverter extends BaseEnumConverter<
+  typeof SchemaStatus
+> {
+  constructor() {
+    super(SchemaStatus, 'schema status');
+  }
 }

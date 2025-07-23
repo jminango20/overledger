@@ -18,6 +18,8 @@ import {
   DescriptionValidation,
 } from '../../../common/decorators/validation.decorators';
 import { MAX_SCHEMAS_PER_PROCESS } from '../../../common/constants/validation.constants';
+import { BaseEnumConverter } from '../../../common/utils/enum-converter.base';
+import { BaseTransactionResponseDto } from '../../../common/dto/base-response.dto';
 
 // =============================================================
 //                        ENUMS
@@ -194,35 +196,7 @@ export class GetProcessDto {
 //                        RESPONSE DTOs
 // =============================================================
 
-abstract class BaseProcessResponseDto {
-  @ApiProperty({
-    description: 'Se a operação foi bem-sucedida',
-    example: true,
-  })
-  success: boolean;
-
-  @ApiProperty({
-    description: 'Hash da transação',
-    example: '0x1234567890abcdef...',
-  })
-  transactionHash: string;
-
-  @ApiProperty({
-    description: 'Número do bloco onde a transação foi minerada',
-    example: 18500000,
-    required: false,
-  })
-  blockNumber?: number;
-
-  @ApiProperty({
-    description: 'Gas usado na transação',
-    example: '21000',
-    required: false,
-  })
-  gasUsed?: string;
-}
-
-export class CreateProcessResponseDto extends BaseProcessResponseDto {
+export class CreateProcessResponseDto extends BaseTransactionResponseDto {
   @ApiProperty({
     description: 'ID do processo criado',
     example: 'coffee-process',
@@ -261,7 +235,7 @@ export class CreateProcessResponseDto extends BaseProcessResponseDto {
   action: string;
 }
 
-export class UpdateProcessStatusResponseDto extends BaseProcessResponseDto {
+export class UpdateProcessStatusResponseDto extends BaseTransactionResponseDto {
   @ApiProperty({
     description: 'ID do processo atualizado',
     example: 'coffe-process',
@@ -403,80 +377,18 @@ export interface ProcessInputContract {
 //                        UTILITY CONVERTERS
 // =============================================================
 
-export class ProcessStatusConverter {
-  static stringToEnum(statusString: string): ProcessStatus {
-    const upperStatus = statusString.toUpperCase();
-    switch (upperStatus) {
-      case 'ACTIVE':
-        return ProcessStatus.ACTIVE;
-      case 'INACTIVE':
-        return ProcessStatus.INACTIVE;
-      default:
-        throw new Error(`Invalid process status: ${statusString}`);
-    }
-  }
-
-  static enumToString(status: ProcessStatus): string {
-    switch (status) {
-      case ProcessStatus.ACTIVE:
-        return 'ACTIVE';
-      case ProcessStatus.INACTIVE:
-        return 'INACTIVE';
-      default:
-        throw new Error(`Invalid process status enum: ${status as string}`);
-    }
+export class ProcessStatusConverter extends BaseEnumConverter<
+  typeof ProcessStatus
+> {
+  constructor() {
+    super(ProcessStatus, 'process status');
   }
 }
 
-export class ProcessActionConverter {
-  static stringToEnum(actionString: string): ProcessAction {
-    const upperAction = actionString.toUpperCase();
-    switch (upperAction) {
-      case 'CREATE_ASSET':
-        return ProcessAction.CREATE_ASSET;
-      case 'UPDATE_ASSET':
-        return ProcessAction.UPDATE_ASSET;
-      case 'CREATE_DOCUMENT':
-        return ProcessAction.CREATE_DOCUMENT;
-      case 'TRANSFER_ASSET':
-        return ProcessAction.TRANSFER_ASSET;
-      case 'TRANSFORM_ASSET':
-        return ProcessAction.TRANSFORM_ASSET;
-      case 'SPLIT_ASSET':
-        return ProcessAction.SPLIT_ASSET;
-      case 'GROUP_ASSET':
-        return ProcessAction.GROUP_ASSET;
-      case 'UNGROUP_ASSET':
-        return ProcessAction.UNGROUP_ASSET;
-      case 'INACTIVATE_ASSET':
-        return ProcessAction.INACTIVATE_ASSET;
-      default:
-        throw new Error(`Invalid process action: ${actionString}`);
-    }
-  }
-
-  static enumToString(action: ProcessAction): string {
-    switch (action) {
-      case ProcessAction.CREATE_ASSET:
-        return 'CREATE_ASSET';
-      case ProcessAction.UPDATE_ASSET:
-        return 'UPDATE_ASSET';
-      case ProcessAction.CREATE_DOCUMENT:
-        return 'CREATE_DOCUMENT';
-      case ProcessAction.TRANSFER_ASSET:
-        return 'TRANSFER_ASSET';
-      case ProcessAction.TRANSFORM_ASSET:
-        return 'TRANSFORM_ASSET';
-      case ProcessAction.SPLIT_ASSET:
-        return 'SPLIT_ASSET';
-      case ProcessAction.GROUP_ASSET:
-        return 'GROUP_ASSET';
-      case ProcessAction.UNGROUP_ASSET:
-        return 'UNGROUP_ASSET';
-      case ProcessAction.INACTIVATE_ASSET:
-        return 'INACTIVATE_ASSET';
-      default:
-        throw new Error(`Invalid process action enum: ${action as string}`);
-    }
+export class ProcessActionConverter extends BaseEnumConverter<
+  typeof ProcessAction
+> {
+  constructor() {
+    super(ProcessAction, 'process action');
   }
 }
