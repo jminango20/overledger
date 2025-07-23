@@ -4,16 +4,20 @@ import {
   IsNotEmpty,
   Length,
   Matches,
-  IsOptional,
   IsNumber,
   Min,
   IsEnum,
   IsArray,
   ValidateNested,
-  ArrayMinSize,
   ArrayMaxSize,
 } from 'class-validator';
 import { Type } from 'class-transformer';
+import {
+  ChannelNameValidation,
+  IdValidation,
+  DescriptionValidation,
+} from '../../../common/decorators/validation.decorators';
+import { MAX_SCHEMAS_PER_PROCESS } from '../../../common/constants/validation.constants';
 
 // =============================================================
 //                        ENUMS
@@ -53,78 +57,6 @@ export const PROCESS_ACTION_STRINGS = [
 
 export type ProcessStatusString = (typeof PROCESS_STATUS_STRINGS)[number];
 export type ProcessActionString = (typeof PROCESS_ACTION_STRINGS)[number];
-
-// Validation decorators
-function ProcessIdValidation() {
-  return function (target: any, propertyKey: string) {
-    ApiProperty({
-      description: 'Identificador único do processo',
-      example: 'coffee-process',
-      minLength: 1,
-      maxLength: 50,
-    })(target, propertyKey);
-    IsString()(target, propertyKey);
-    IsNotEmpty()(target, propertyKey);
-    Length(1, 50)(target, propertyKey);
-    Matches(/^[a-zA-Z0-9_-]+$/, {
-      message:
-        'processId deve conter apenas letras, números, underscore e hífen',
-    })(target, propertyKey);
-  };
-}
-
-function NatureIdValidation() {
-  return function (target: any, propertyKey: string) {
-    ApiProperty({
-      description: 'Identificador da natureza do processo',
-      example: 'coffee-onboarding',
-      minLength: 1,
-      maxLength: 50,
-    })(target, propertyKey);
-    IsString()(target, propertyKey);
-    IsNotEmpty()(target, propertyKey);
-    Length(1, 50)(target, propertyKey);
-    Matches(/^[a-zA-Z0-9_-]+$/, {
-      message:
-        'natureId deve conter apenas letras, números, underscore e hífen',
-    })(target, propertyKey);
-  };
-}
-
-function StageIdValidation() {
-  return function (target: any, propertyKey: string) {
-    ApiProperty({
-      description: 'Identificador do estágio do processo',
-      example: 'coffee-verification',
-      minLength: 1,
-      maxLength: 50,
-    })(target, propertyKey);
-    IsString()(target, propertyKey);
-    IsNotEmpty()(target, propertyKey);
-    Length(1, 50)(target, propertyKey);
-    Matches(/^[a-zA-Z0-9_-]+$/, {
-      message: 'stageId deve conter apenas letras, números, underscore e hífen',
-    })(target, propertyKey);
-  };
-}
-
-function ChannelNameValidation() {
-  return function (target: any, propertyKey: string) {
-    ApiProperty({
-      description: 'Nome do canal',
-      example: 'my-awesome-channel',
-      minLength: 1,
-      maxLength: 50,
-    })(target, propertyKey);
-    IsString()(target, propertyKey);
-    IsNotEmpty()(target, propertyKey);
-    Length(1, 50)(target, propertyKey);
-    Matches(/^[a-zA-Z0-9_-]+$/, {
-      message:
-        'channelName deve conter apenas letras, números, underscore e hífen',
-    })(target, propertyKey);
-  };
-}
 
 function ProcessActionValidation() {
   return function (target: any, propertyKey: string) {
@@ -183,26 +115,22 @@ export class SchemaReferenceDto {
 // =============================================================
 
 export class CreateProcessDto {
-  @ProcessIdValidation()
+  @IdValidation('do processo', 'coffee-process')
   processId: string;
 
-  @NatureIdValidation()
+  @IdValidation('da natureza', 'coffee-onboarding')
   natureId: string;
 
-  @StageIdValidation()
+  @IdValidation('do estágio', 'coffee-verification')
   stageId: string;
 
   @ApiProperty({
-    description: 'Array de schemas requeridos para este processo',
+    description: 'Schemas requeridos para este processo',
     type: [SchemaReferenceDto],
-    example: [
-      { schemaId: 'user-profile-schema', version: 1 },
-      { schemaId: 'document-schema', version: 2 },
-    ],
+    maxItems: MAX_SCHEMAS_PER_PROCESS,
   })
   @IsArray()
-  @ArrayMinSize(0)
-  @ArrayMaxSize(10) // Prevent abuse
+  @ArrayMaxSize(MAX_SCHEMAS_PER_PROCESS)
   @ValidateNested({ each: true })
   @Type(() => SchemaReferenceDto)
   schemas: SchemaReferenceDto[];
@@ -210,15 +138,7 @@ export class CreateProcessDto {
   @ProcessActionValidation()
   action: ProcessAction;
 
-  @ApiProperty({
-    description: 'Descrição do processo',
-    example: 'Processo de onboarding de novos usuários',
-    maxLength: 255,
-    required: false,
-  })
-  @IsString()
-  @IsOptional()
-  @Length(0, 255)
+  @DescriptionValidation()
   description?: string;
 
   @ChannelNameValidation()
@@ -226,13 +146,13 @@ export class CreateProcessDto {
 }
 
 export class UpdateProcessStatusDto {
-  @ProcessIdValidation()
+  @IdValidation('do processo', 'coffee-process')
   processId: string;
 
-  @NatureIdValidation()
+  @IdValidation('da natureza', 'coffee-onboarding')
   natureId: string;
 
-  @StageIdValidation()
+  @IdValidation('do estágio', 'coffee-verification')
   stageId: string;
 
   @ChannelNameValidation()
@@ -243,13 +163,13 @@ export class UpdateProcessStatusDto {
 }
 
 export class InactivateProcessDto {
-  @ProcessIdValidation()
+  @IdValidation('do processo', 'coffee-process')
   processId: string;
 
-  @NatureIdValidation()
+  @IdValidation('da natureza', 'coffee-onboarding')
   natureId: string;
 
-  @StageIdValidation()
+  @IdValidation('do estágio', 'coffee-verification')
   stageId: string;
 
   @ChannelNameValidation()
@@ -257,13 +177,13 @@ export class InactivateProcessDto {
 }
 
 export class GetProcessDto {
-  @ProcessIdValidation()
+  @IdValidation('do processo', 'coffee-process')
   processId: string;
 
-  @NatureIdValidation()
+  @IdValidation('da natureza', 'coffee-onboarding')
   natureId: string;
 
-  @StageIdValidation()
+  @IdValidation('do estágio', 'coffee-verification')
   stageId: string;
 
   @ChannelNameValidation()
