@@ -53,7 +53,10 @@ export class ChannelMembersDto extends BaseChannelOperationDto {
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(100)
-  @IsEthereumAddress({ each: true })
+  @IsEthereumAddress({
+    each: true,
+    message: 'Os endereços deve ser endereços Ethereum válidos',
+  })
   memberAddresses: string[];
 }
 
@@ -74,7 +77,10 @@ export class CheckMultipleMembersDto {
   @IsArray()
   @ArrayMinSize(1)
   @ArrayMaxSize(100)
-  @IsEthereumAddress({ each: true })
+  @IsEthereumAddress({
+    each: true,
+    message: 'Os endereços deve ser endereços Ethereum válidos',
+  })
   memberAddresses: string[];
 }
 

@@ -5,7 +5,7 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from '../../prisma/prisma.service';
+import { PrismaService } from '@/prisma/prisma.service';
 import { ethers } from 'ethers';
 import {
   UpdateAddressDto,
@@ -13,7 +13,7 @@ import {
   ContractAddressResponseDto,
   UpdateAddressResponseDto,
 } from './dto';
-import { BlockchainProvider } from '../../blockchain/providers/blockchain.provider';
+import { BlockchainProvider } from '@/blockchain/providers/blockchain.provider';
 
 @Injectable()
 export class AddressDiscoveryService {

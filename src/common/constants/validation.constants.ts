@@ -5,7 +5,7 @@
 // Channel validations
 export const CHANNEL_NAME_REGEX = /^[a-zA-Z0-9_-]+$/;
 export const CHANNEL_NAME_ERROR_MESSAGE =
-  'channelName deve conter apenas letras, números, underscore e hífen';
+  'O nome do canal deve conter apenas letras, números, underscore e hífen';
 export const CHANNEL_NAME_MIN_LENGTH = 1;
 export const CHANNEL_NAME_MAX_LENGTH = 50;
 
@@ -24,7 +24,7 @@ export const DESCRIPTION_MAX_LENGTH = 255;
 // Hash validations
 export const DATA_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
 export const DATA_HASH_ERROR_MESSAGE =
-  'dataHash deve ser um hash válido (0x + 64 caracteres hexadecimais)';
+  'O dataHash deve ser um hash válido (0x + 64 caracteres hexadecimais)';
 export const HASH_TX = /^0x[a-fA-F0-9]{64}$/;
 export const HASH_TX_MIN_LENGTH = 66;
 export const HASH_TX_MAX_LENGTH = 66;

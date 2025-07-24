@@ -12,9 +12,11 @@ export class UpdateAddressDto {
     minLength: 1,
     maxLength: 50,
   })
-  @IsString()
-  @IsNotEmpty()
-  @Length(1, 50)
+  @IsString({ message: 'O nome do contrato deve ser uma string' })
+  @IsNotEmpty({ message: 'O nome do contrato deve ser informado' })
+  @Length(1, 50, {
+    message: `O nome do contrato deve ter entre 1 e 50 caracteres`,
+  })
   contractName: string;
 
   @ApiProperty({
