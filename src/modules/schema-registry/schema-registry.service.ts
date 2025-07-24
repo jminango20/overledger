@@ -23,7 +23,6 @@ import {
   SchemaStatusConverter,
 } from './dto/schema-registry.dto';
 import { BlockchainProvider } from '@/blockchain/providers/blockchain.provider';
-import { ContractErrorHandler } from '@/common/utils/contract-error.handler';
 import { ABIName } from '@/blockchain/abis';
 import { BaseContractService } from '@/blockchain/services/base-contract.service';
 
@@ -51,29 +50,19 @@ export class SchemaRegistryService extends BaseContractService {
     createDto: CreateSchemaDto,
     privateKey: string,
   ): Promise<CreateSchemaResponseDto> {
-    if (!createDto.schemaId?.trim()) {
-      throw new BadRequestException('ID do schema é obrigatório');
-    }
+    this.validateSchemaInput(createDto, [
+      'schemaId',
+      'name',
+      'channelName',
+      'dataHash',
+    ]);
 
-    if (!createDto.name?.trim()) {
-      throw new BadRequestException('Nome do schema é obrigatório');
-    }
-
-    if (!createDto.channelName?.trim()) {
-      throw new BadRequestException('Nome do canal é obrigatório');
-    }
-
-    if (!createDto.dataHash?.trim()) {
-      throw new BadRequestException('Hash dos dados é obrigatório');
-    }
-
-    return this.executeSchemaOperation(
+    return this.executeTransactionOperation(
       'createSchema',
       createDto.schemaId,
       createDto.channelName,
       privateKey,
-      async (contract) => {
-        // Preparar o struct SchemaInput para o contrato
+      async (contract, walletAddress) => {
         const schemaInput: SchemaInputContract = {
           id: this.toBytes32(createDto.schemaId),
           name: createDto.name,
@@ -88,18 +77,22 @@ export class SchemaRegistryService extends BaseContractService {
           schemaId: createDto.schemaId,
           name: createDto.name,
           channelName: createDto.channelName,
-          dataHash: createDto.dataHash,
         });
 
         const tx = await contract.createSchema(schemaInput);
-
         return {
           tx,
-          schemaId: createDto.schemaId,
-          name: createDto.name,
-          channelName: createDto.channelName,
+          additionalData: { dto: createDto },
         };
       },
+      (tx, receipt, walletAddress, additionalData) => ({
+        ...this.buildTransactionResponse(tx, receipt),
+        schemaId: additionalData.dto.schemaId,
+        name: additionalData.dto.name,
+        version: this.parseEventVersion(receipt, 'SchemaCreated') || 1,
+        channelName: additionalData.dto.channelName,
+        owner: walletAddress,
+      }),
     );
   }
 
@@ -110,39 +103,37 @@ export class SchemaRegistryService extends BaseContractService {
     deprecateDto: DeprecateSchemaDto,
     privateKey: string,
   ): Promise<DeprecateSchemaResponseDto> {
-    if (!deprecateDto.schemaId?.trim()) {
-      throw new BadRequestException('ID do schema é obrigatório');
-    }
+    this.validateSchemaInput(deprecateDto, ['schemaId', 'channelName']);
 
-    if (!deprecateDto.channelName?.trim()) {
-      throw new BadRequestException('Nome do canal é obrigatório');
-    }
-
-    return this.executeDeprecateSchemaOperation(
+    return this.executeTransactionOperation(
       'deprecateSchema',
       deprecateDto.schemaId,
       deprecateDto.channelName,
       privateKey,
-      async (contract) => {
-        const schemaIdBytes32 = this.toBytes32(deprecateDto.schemaId);
-        const channelNameBytes32 = this.toBytes32(deprecateDto.channelName);
-
+      async (contract, walletAddress) => {
         this.logger.debug(`Chamando deprecateSchema com:`, {
           schemaId: deprecateDto.schemaId,
           channelName: deprecateDto.channelName,
         });
 
         const tx = await contract.deprecateSchema(
-          schemaIdBytes32,
-          channelNameBytes32,
+          this.toBytes32(deprecateDto.schemaId),
+          this.toBytes32(deprecateDto.channelName),
         );
 
         return {
           tx,
-          schemaId: deprecateDto.schemaId,
-          channelName: deprecateDto.channelName,
+          additionalData: { dto: deprecateDto },
         };
       },
+      (tx, receipt, walletAddress, additionalData) => ({
+        ...this.buildTransactionResponse(tx, receipt),
+        schemaId: additionalData.dto.schemaId,
+        deprecatedVersion:
+          this.parseEventVersion(receipt, 'SchemaStatusChanged') || 1,
+        channelName: additionalData.dto.channelName,
+        owner: walletAddress,
+      }),
     );
   }
 
@@ -153,25 +144,18 @@ export class SchemaRegistryService extends BaseContractService {
     updateDto: UpdateSchemaDto,
     privateKey: string,
   ): Promise<UpdateSchemaResponseDto> {
-    if (!updateDto.schemaId?.trim()) {
-      throw new BadRequestException('ID do schema é obrigatório');
-    }
+    this.validateSchemaInput(updateDto, [
+      'schemaId',
+      'channelName',
+      'newDataHash',
+    ]);
 
-    if (!updateDto.channelName?.trim()) {
-      throw new BadRequestException('Nome do canal é obrigatório');
-    }
-
-    if (!updateDto.newDataHash?.trim()) {
-      throw new BadRequestException('Novo hash dos dados é obrigatório');
-    }
-
-    return this.executeUpdateSchemaOperation(
+    return this.executeTransactionOperation(
       'updateSchema',
       updateDto.schemaId,
       updateDto.channelName,
       privateKey,
-      async (contract) => {
-        // Preparar o struct SchemaUpdateInput para o contrato
+      async (contract, walletAddress) => {
         const schemaUpdateInput: SchemaUpdateInputContract = {
           id: this.toBytes32(updateDto.schemaId),
           newDataHash: updateDto.newDataHash.startsWith('0x')
@@ -191,10 +175,18 @@ export class SchemaRegistryService extends BaseContractService {
 
         return {
           tx,
-          schemaId: updateDto.schemaId,
-          channelName: updateDto.channelName,
+          additionalData: { dto: updateDto },
         };
       },
+      (tx, receipt, walletAddress, additionalData) => ({
+        ...this.buildTransactionResponse(tx, receipt),
+        schemaId: additionalData.dto.schemaId,
+        previousVersion:
+          this.parseEventPreviousVersion(receipt, 'SchemaUpdated') || 1,
+        newVersion: this.parseEventNewVersion(receipt, 'SchemaUpdated') || 2,
+        channelName: additionalData.dto.channelName,
+        owner: walletAddress,
+      }),
     );
   }
 
@@ -205,28 +197,15 @@ export class SchemaRegistryService extends BaseContractService {
     inactivateDto: InactivateSchemaDto,
     privateKey: string,
   ): Promise<InactivateSchemaResponseDto> {
-    if (!inactivateDto.schemaId?.trim()) {
-      throw new BadRequestException('ID do schema é obrigatório');
-    }
+    this.validateSchemaInput(inactivateDto, ['schemaId', 'channelName']);
+    this.validateVersion(inactivateDto.version);
 
-    if (!inactivateDto.channelName?.trim()) {
-      throw new BadRequestException('Nome do canal é obrigatório');
-    }
-
-    if (!inactivateDto.version || inactivateDto.version < 1) {
-      throw new BadRequestException('Versão deve ser maior que 0');
-    }
-
-    return this.executeInactivateSchemaOperation(
+    return this.executeTransactionOperation(
       'inactivateSchema',
       inactivateDto.schemaId,
       inactivateDto.channelName,
-      inactivateDto.version,
       privateKey,
-      async (contract) => {
-        const schemaIdBytes32 = this.toBytes32(inactivateDto.schemaId);
-        const channelNameBytes32 = this.toBytes32(inactivateDto.channelName);
-
+      async (contract, walletAddress) => {
         this.logger.debug(`Chamando inactivateSchema com:`, {
           schemaId: inactivateDto.schemaId,
           version: inactivateDto.version,
@@ -234,18 +213,27 @@ export class SchemaRegistryService extends BaseContractService {
         });
 
         const tx = await contract.inactivateSchema(
-          schemaIdBytes32,
+          this.toBytes32(inactivateDto.schemaId),
           inactivateDto.version,
-          channelNameBytes32,
+          this.toBytes32(inactivateDto.channelName),
         );
 
         return {
           tx,
-          schemaId: inactivateDto.schemaId,
-          version: inactivateDto.version,
-          channelName: inactivateDto.channelName,
+          additionalData: { dto: inactivateDto },
         };
       },
+      (tx, receipt, walletAddress, additionalData) => ({
+        ...this.buildTransactionResponse(tx, receipt),
+        schemaId: additionalData.dto.schemaId,
+        inactivatedVersion: additionalData.dto.version,
+        previousStatus: SchemaStatusConverter.enumToString(
+          this.parseEventPreviousStatus(receipt, 'SchemaStatusChanged') ||
+            SchemaStatus.ACTIVE,
+        ),
+        channelName: additionalData.dto.channelName,
+        owner: walletAddress,
+      }),
     );
   }
 
@@ -256,30 +244,15 @@ export class SchemaRegistryService extends BaseContractService {
     setSchemaStatusDto: SetSchemaStatusDto,
     privateKey: string,
   ): Promise<SetSchemaStatusResponseDto> {
-    if (!setSchemaStatusDto.schemaId?.trim()) {
-      throw new BadRequestException('ID do schema é obrigatório');
-    }
+    this.validateSchemaInput(setSchemaStatusDto, ['schemaId', 'channelName']);
+    this.validateVersion(setSchemaStatusDto.version);
 
-    if (!setSchemaStatusDto.channelName?.trim()) {
-      throw new BadRequestException('Nome do canal é obrigatório');
-    }
-
-    if (!setSchemaStatusDto.version || setSchemaStatusDto.version < 1) {
-      throw new BadRequestException('Versão deve ser maior que 0');
-    }
-
-    return this.executeSetSchemaStatusOperation(
+    return this.executeTransactionOperation(
       'setSchemaStatus',
       setSchemaStatusDto.schemaId,
       setSchemaStatusDto.channelName,
-      setSchemaStatusDto.version,
       privateKey,
-      async (contract) => {
-        const schemaIdBytes32 = this.toBytes32(setSchemaStatusDto.schemaId);
-        const channelNameBytes32 = this.toBytes32(
-          setSchemaStatusDto.channelName,
-        );
-
+      async (contract, walletAddress) => {
         const statusEnum = SchemaStatusConverter.stringToEnum(
           String(setSchemaStatusDto.status),
         );
@@ -292,20 +265,29 @@ export class SchemaRegistryService extends BaseContractService {
         });
 
         const tx = await contract.setSchemaStatus(
-          schemaIdBytes32,
+          this.toBytes32(setSchemaStatusDto.schemaId),
           setSchemaStatusDto.version,
-          channelNameBytes32,
+          this.toBytes32(setSchemaStatusDto.channelName),
           statusEnum,
         );
 
         return {
           tx,
-          schemaId: setSchemaStatusDto.schemaId,
-          version: setSchemaStatusDto.version,
-          channelName: setSchemaStatusDto.channelName,
-          status: setSchemaStatusDto.status,
+          additionalData: { dto: setSchemaStatusDto },
         };
       },
+      (tx, receipt, walletAddress, additionalData) => ({
+        ...this.buildTransactionResponse(tx, receipt),
+        schemaId: additionalData.dto.schemaId,
+        inactivatedVersion: additionalData.dto.version,
+        previousStatus: SchemaStatusConverter.enumToString(
+          this.parseEventPreviousStatus(receipt, 'SchemaStatusChanged') ||
+            SchemaStatus.ACTIVE,
+        ),
+        currentStatus: additionalData.dto.status,
+        channelName: additionalData.dto.channelName,
+        owner: walletAddress,
+      }),
     );
   }
 
@@ -315,72 +297,45 @@ export class SchemaRegistryService extends BaseContractService {
   async getSchemaByVersion(
     getSchemaByVersionDto: GetSchemaByVersionDto,
   ): Promise<SchemaDto> {
-    this.logger.log(
-      `Buscando schema ${getSchemaByVersionDto.schemaId} por versão: ${getSchemaByVersionDto.version} no canal ${getSchemaByVersionDto.channelName}`,
+    return this.executeViewOperation(
+      'getSchemaByVersion',
+      getSchemaByVersionDto.schemaId,
+      getSchemaByVersionDto.channelName,
+      async (contract) => {
+        const result = await contract.getSchemaByVersion(
+          this.toBytes32(getSchemaByVersionDto.channelName),
+          this.toBytes32(getSchemaByVersionDto.schemaId),
+          getSchemaByVersionDto.version,
+        );
+        return this.parseSchemaFromContract(
+          result,
+          getSchemaByVersionDto.schemaId,
+          getSchemaByVersionDto.channelName,
+        );
+      },
     );
-
-    try {
-      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
-
-      const contract = await this.getContractInstance(tempPrivateKey);
-
-      const channelNameBytes32 = this.toBytes32(
-        getSchemaByVersionDto.channelName,
-      );
-      const schemaIdBytes32 = this.toBytes32(getSchemaByVersionDto.schemaId);
-
-      const result = await contract.getSchemaByVersion(
-        channelNameBytes32,
-        schemaIdBytes32,
-        getSchemaByVersionDto.version,
-      );
-
-      return this.parseSchemaFromContract(
-        result,
-        getSchemaByVersionDto.schemaId,
-        getSchemaByVersionDto.channelName,
-      );
-    } catch (error) {
-      this.logger.error(`Erro ao buscar schema: ${error.message}`, error.stack);
-
-      return this.handleContractViewError(error, 'getSchemaByVersion');
-    }
   }
 
   /**
    * Get active schema
    */
   async getActiveSchema(getSchemaDto: GetSchemaDto): Promise<SchemaDto> {
-    this.logger.log(
-      `Buscando schema ativo: ${getSchemaDto.schemaId} no canal ${getSchemaDto.channelName}`,
+    return this.executeViewOperation(
+      'getActiveSchema',
+      getSchemaDto.schemaId,
+      getSchemaDto.channelName,
+      async (contract) => {
+        const result = await contract.getActiveSchema(
+          this.toBytes32(getSchemaDto.channelName),
+          this.toBytes32(getSchemaDto.schemaId),
+        );
+        return this.parseSchemaFromContract(
+          result,
+          getSchemaDto.schemaId,
+          getSchemaDto.channelName,
+        );
+      },
     );
-
-    try {
-      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
-
-      const contract = await this.getContractInstance(tempPrivateKey);
-
-      const channelNameBytes32 = this.toBytes32(getSchemaDto.channelName);
-      const schemaIdBytes32 = this.toBytes32(getSchemaDto.schemaId);
-
-      const result = await contract.getActiveSchema(
-        channelNameBytes32,
-        schemaIdBytes32,
-      );
-
-      return this.parseSchemaFromContract(
-        result,
-        getSchemaDto.schemaId,
-        getSchemaDto.channelName,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Erro ao buscar schema ativo: ${error.message}`,
-        error.stack,
-      );
-
-      return this.handleContractViewError(error, 'getActiveSchema');
-    }
   }
 
   /**
@@ -389,131 +344,85 @@ export class SchemaRegistryService extends BaseContractService {
   async getLatestSchema(
     getSchemaDto: GetSchemaDto,
   ): Promise<GetLatestSchemaResponseDto> {
-    this.logger.log(
-      `Buscando o schema mais recente: ${getSchemaDto.schemaId} no canal ${getSchemaDto.channelName}`,
-    );
+    return this.executeViewOperation(
+      'getLatestSchema',
+      getSchemaDto.schemaId,
+      getSchemaDto.channelName,
+      async (contract) => {
+        const channelNameBytes32 = this.toBytes32(getSchemaDto.channelName);
+        const schemaIdBytes32 = this.toBytes32(getSchemaDto.schemaId);
 
-    try {
-      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
-      const contract = await this.getContractInstance(tempPrivateKey);
-
-      const channelNameBytes32 = this.toBytes32(getSchemaDto.channelName);
-      const schemaIdBytes32 = this.toBytes32(getSchemaDto.schemaId);
-
-      const result = await contract.getLatestSchema(
-        channelNameBytes32,
-        schemaIdBytes32,
-      );
-
-      const schema = this.parseSchemaFromContract(
-        result,
-        getSchemaDto.schemaId,
-        getSchemaDto.channelName,
-      );
-
-      // Verificar se esta é também a versão ativa
-      let isActiveVersion = false;
-      try {
-        const activeResult = await contract.getActiveSchema(
+        const result = await contract.getLatestSchema(
           channelNameBytes32,
           schemaIdBytes32,
         );
-        const activeSchema = this.parseSchemaFromContract(activeResult);
-        isActiveVersion = schema.version === activeSchema.version;
-      } catch {
-        // Se não há versão ativa, isActiveVersion permanece false
-        this.logger.debug('Não há versão ativa para este schema');
-      }
-
-      return {
-        schema,
-        isActiveVersion,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Erro ao buscar schema ativo: ${error.message}`,
-        error.stack,
-      );
-
-      const customError = ContractErrorHandler.parseContractError(error);
-      if (customError) {
-        throw customError;
-      }
-
-      if (error.code === 'CALL_EXCEPTION') {
-        throw new BadRequestException(
-          'Erro na chamada do contrato. Verifique se o schema existe e está ativo no canal.',
+        const schema = this.parseSchemaFromContract(
+          result,
+          getSchemaDto.schemaId,
+          getSchemaDto.channelName,
         );
-      }
 
-      throw error;
-    }
+        // Verificar se esta é também a versão ativa
+        let isActiveVersion = false;
+        try {
+          const activeResult = await contract.getActiveSchema(
+            channelNameBytes32,
+            schemaIdBytes32,
+          );
+          const activeSchema = this.parseSchemaFromContract(activeResult);
+          isActiveVersion = schema.version === activeSchema.version;
+        } catch {
+          this.logger.debug('Não há versão ativa para este schema');
+        }
+
+        return { schema, isActiveVersion };
+      },
+    );
   }
 
   /**
-   * Get all versions of a schema
+   * Get schema versions
    */
   async getSchemaVersions(
     getSchemaDto: GetSchemaDto,
   ): Promise<GetSchemaVersionsResponseDto> {
-    this.logger.log(
-      `Buscando todas as versões do schema: ${getSchemaDto.schemaId} no canal ${getSchemaDto.channelName}`,
-    );
+    return this.executeViewOperation(
+      'getSchemaVersions',
+      getSchemaDto.schemaId,
+      getSchemaDto.channelName,
+      async (contract) => {
+        const channelNameBytes32 = this.toBytes32(getSchemaDto.channelName);
+        const schemaIdBytes32 = this.toBytes32(getSchemaDto.schemaId);
 
-    try {
-      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
-      const contract = await this.getContractInstance(tempPrivateKey);
-
-      const channelNameBytes32 = this.toBytes32(getSchemaDto.channelName);
-      const schemaIdBytes32 = this.toBytes32(getSchemaDto.schemaId);
-
-      // Obter todas as versões
-      const result = await contract.getSchemaVersions(
-        channelNameBytes32,
-        schemaIdBytes32,
-      );
-
-      const versions: number[] = result.versions.map((v: any) => Number(v));
-      const schemas: SchemaDto[] = result.schemas.map((schema: any) =>
-        this.parseSchemaFromContract(schema),
-      );
-
-      // Obter informações adicionais do schema
-      const infoResult = await contract.getSchemaInfo(
-        channelNameBytes32,
-        schemaIdBytes32,
-      );
-      const activeVersion = Number(infoResult.activeVersion);
-      const latestVersion = Number(infoResult.latestVersion);
-
-      return {
-        schemaId: getSchemaDto.schemaId,
-        channelName: getSchemaDto.channelName,
-        versions,
-        schemas,
-        activeVersion,
-        latestVersion,
-        totalVersions: versions.length,
-      };
-    } catch (error) {
-      this.logger.error(
-        `Erro ao buscar versões do schema: ${error.message}`,
-        error.stack,
-      );
-
-      const customError = ContractErrorHandler.parseContractError(error);
-      if (customError) {
-        throw customError;
-      }
-
-      if (error.code === 'CALL_EXCEPTION') {
-        throw new BadRequestException(
-          'Erro na chamada do contrato. Verifique se o schema existe no canal.',
+        // Obter todas as versões
+        const result = await contract.getSchemaVersions(
+          channelNameBytes32,
+          schemaIdBytes32,
         );
-      }
+        const versions: number[] = result.versions.map((v: any) => Number(v));
+        const schemas: SchemaDto[] = result.schemas.map((schema: any) =>
+          this.parseSchemaFromContract(schema),
+        );
 
-      throw error;
-    }
+        // Obter informações adicionais do schema
+        const infoResult = await contract.getSchemaInfo(
+          channelNameBytes32,
+          schemaIdBytes32,
+        );
+        const activeVersion = Number(infoResult.activeVersion);
+        const latestVersion = Number(infoResult.latestVersion);
+
+        return {
+          schemaId: getSchemaDto.schemaId,
+          channelName: getSchemaDto.channelName,
+          versions,
+          schemas,
+          activeVersion,
+          latestVersion,
+          totalVersions: versions.length,
+        };
+      },
+    );
   }
 
   /**
@@ -522,55 +431,27 @@ export class SchemaRegistryService extends BaseContractService {
   async getSchemaInfo(
     getSchemaDto: GetSchemaDto,
   ): Promise<SchemaInfoResponseDto> {
-    this.logger.log(
-      `Buscando informações do schema: ${getSchemaDto.schemaId} no canal ${getSchemaDto.channelName}`,
-    );
-
-    try {
-      const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
-
-      const contract = await this.getContractInstance(tempPrivateKey);
-
-      const channelNameBytes32 = this.toBytes32(getSchemaDto.channelName);
-      const schemaIdBytes32 = this.toBytes32(getSchemaDto.schemaId);
-
-      const result = await contract.getSchemaInfo(
-        channelNameBytes32,
-        schemaIdBytes32,
-      );
-
-      this.logger.log(
-        `Informações do schema ${getSchemaDto.schemaId} obtidas com sucesso`,
-      );
-
-      return {
-        schemaId: getSchemaDto.schemaId,
-        channelName: getSchemaDto.channelName,
-        latestVersion: Number(result.latestVersion),
-        activeVersion: Number(result.activeVersion),
-        hasActiveVersion: result.hasActiveVersion,
-        owner: result.owner,
-        totalVersions: Number(result.totalVersions),
-      };
-    } catch (error) {
-      this.logger.error(
-        `Erro ao buscar informações do schema: ${error.message}`,
-        error.stack,
-      );
-
-      const customError = ContractErrorHandler.parseContractError(error);
-      if (customError) {
-        throw customError;
-      }
-
-      if (error.code === 'CALL_EXCEPTION') {
-        throw new BadRequestException(
-          'Erro na chamada do contrato. Verifique se o schema existe.',
+    return this.executeViewOperation(
+      'getSchemaInfo',
+      getSchemaDto.schemaId,
+      getSchemaDto.channelName,
+      async (contract) => {
+        const result = await contract.getSchemaInfo(
+          this.toBytes32(getSchemaDto.channelName),
+          this.toBytes32(getSchemaDto.schemaId),
         );
-      }
 
-      throw error;
-    }
+        return {
+          schemaId: getSchemaDto.schemaId,
+          channelName: getSchemaDto.channelName,
+          latestVersion: Number(result.latestVersion),
+          activeVersion: Number(result.activeVersion),
+          hasActiveVersion: result.hasActiveVersion,
+          owner: result.owner,
+          totalVersions: Number(result.totalVersions),
+        };
+      },
+    );
   }
 
   /**
@@ -1084,5 +965,113 @@ export class SchemaRegistryService extends BaseContractService {
       updatedAt: Number(contractResult.updatedAt),
       description: contractResult.description,
     };
+  }
+
+  private validateSchemaInput(dto: any, requiredFields: string[]): void {
+    for (const field of requiredFields) {
+      if (!dto[field]?.trim?.() && dto[field] !== 0) {
+        throw new BadRequestException(`${field} é obrigatório`);
+      }
+    }
+  }
+
+  private parseEventVersion(
+    receipt: ethers.TransactionReceipt | null,
+    eventName: string,
+  ): number | null {
+    if (!receipt?.logs) return null;
+
+    const eventHash = ethers.id(
+      `${eventName}(bytes32,string,uint256,address,bytes32,uint256)`,
+    );
+    const event = receipt.logs.find((log) => log.topics[0] === eventHash);
+
+    if (event?.data) {
+      try {
+        const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+        const decoded = abiCoder.decode(
+          ['uint256', 'address', 'bytes32', 'uint256'],
+          event.data,
+        );
+        return Number(decoded[0]);
+      } catch (error) {
+        this.logger.warn(`Erro ao parsear evento ${eventName}:`, error.message);
+      }
+    }
+    return null;
+  }
+
+  private parseEventPreviousVersion(
+    receipt: ethers.TransactionReceipt | null,
+    eventName: string,
+  ): number | null {
+    if (!receipt?.logs) return null;
+
+    const eventHash = ethers.id(
+      `${eventName}(bytes32,uint256,uint256,address,bytes32,uint256)`,
+    );
+    const event = receipt.logs.find((log) => log.topics[0] === eventHash);
+
+    if (event?.topics?.[2]) {
+      try {
+        return Number(event.topics[2]);
+      } catch (error) {
+        this.logger.warn(`Erro ao parsear versão anterior:`, error.message);
+      }
+    }
+    return null;
+  }
+
+  private parseEventNewVersion(
+    receipt: ethers.TransactionReceipt | null,
+    eventName: string,
+  ): number | null {
+    if (!receipt?.logs) return null;
+
+    const eventHash = ethers.id(
+      `${eventName}(bytes32,uint256,uint256,address,bytes32,uint256)`,
+    );
+    const event = receipt.logs.find((log) => log.topics[0] === eventHash);
+
+    if (event?.topics?.[3]) {
+      try {
+        return Number(event.topics[3]);
+      } catch (error) {
+        this.logger.warn(`Erro ao parsear nova versão:`, error.message);
+      }
+    }
+    return null;
+  }
+
+  private validateVersion(version: number): void {
+    if (!version || version < 1) {
+      throw new BadRequestException('Versão deve ser maior que 0');
+    }
+  }
+
+  private parseEventPreviousStatus(
+    receipt: ethers.TransactionReceipt | null,
+    eventName: string,
+  ): SchemaStatus | null {
+    if (!receipt?.logs) return null;
+
+    const eventHash = ethers.id(
+      `${eventName}(bytes32,uint256,bytes32,uint8,uint8,address,uint256)`,
+    );
+    const event = receipt.logs.find((log) => log.topics[0] === eventHash);
+
+    if (event?.data) {
+      try {
+        const abiCoder = ethers.AbiCoder.defaultAbiCoder();
+        const decoded = abiCoder.decode(
+          ['uint8', 'uint8', 'address', 'uint256'],
+          event.data,
+        );
+        return Number(decoded[0]) as SchemaStatus;
+      } catch (error) {
+        this.logger.warn(`Erro ao parsear evento ${eventName}:`, error.message);
+      }
+    }
+    return null;
   }
 }
