@@ -22,6 +22,12 @@ import {
   DATA_HASH_REGEX,
   DATA_HASH_ERROR_MESSAGE,
   VERSION_MIN,
+  HASH_TX,
+  HASH_TX_MIN_LENGTH,
+  HASH_TX_MAX_LENGTH,
+  ETHEREUM_ADDRESS_REGEX,
+  ETHEREUM_ADDRESS_MIN_LENGTH,
+  ETHEREUM_ADDRESS_MAX_LENGTH,
 } from '../constants/validation.constants';
 
 // =============================================================
@@ -35,6 +41,7 @@ export function ChannelNameValidation() {
       example: 'my-awesome-channel',
       minLength: CHANNEL_NAME_MIN_LENGTH,
       maxLength: CHANNEL_NAME_MAX_LENGTH,
+      pattern: CHANNEL_NAME_REGEX.source,
     })(target, propertyKey);
 
     IsString()(target, propertyKey);
@@ -57,6 +64,7 @@ export function IdValidation(fieldName: string, example: string) {
       example,
       minLength: ID_MIN_LENGTH,
       maxLength: ID_MAX_LENGTH,
+      pattern: ID_REGEX.source,
     })(target, propertyKey);
 
     IsString()(target, propertyKey);
@@ -89,6 +97,7 @@ export function DataHashValidation() {
       description: 'Hash dos dados (keccak256 do JSON)',
       example:
         '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+      pattern: DATA_HASH_REGEX.source,
     })(target, propertyKey);
 
     IsString()(target, propertyKey);
@@ -121,9 +130,110 @@ export function VersionValidation() {
       description: 'Versão',
       example: 1,
       minimum: VERSION_MIN,
+      type: 'integer',
     })(target, propertyKey);
 
     IsNumber()(target, propertyKey);
     Min(VERSION_MIN)(target, propertyKey);
+  };
+}
+
+export function HashValidation(fieldName: string = 'hash') {
+  return function (target: any, propertyKey: string) {
+    ApiProperty({
+      description: `Hash ${fieldName} (keccak256)`,
+      example:
+        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+      pattern: HASH_TX.source,
+      minLength: HASH_TX_MIN_LENGTH,
+      maxLength: HASH_TX_MAX_LENGTH,
+    })(target, propertyKey);
+
+    IsString()(target, propertyKey);
+    IsNotEmpty()(target, propertyKey);
+    Matches(HASH_TX, {
+      message: `${fieldName} deve ser um hash válido (0x + 64 caracteres hexadecimais)`,
+    })(target, propertyKey);
+  };
+}
+
+export function EthereumAddressValidation(fieldName: string = 'endereço') {
+  return function (target: any, propertyKey: string) {
+    ApiProperty({
+      description: `${fieldName} Ethereum`,
+      example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
+      pattern: ETHEREUM_ADDRESS_REGEX.source,
+      minLength: ETHEREUM_ADDRESS_MIN_LENGTH,
+      maxLength: ETHEREUM_ADDRESS_MAX_LENGTH,
+    })(target, propertyKey);
+
+    IsString()(target, propertyKey);
+    IsNotEmpty()(target, propertyKey);
+    Matches(/^0x[a-fA-F0-9]{40}$/i, {
+      message: `${fieldName} deve ser um endereço Ethereum válido (0x + 40 caracteres hexadecimais)`,
+    })(target, propertyKey);
+  };
+}
+
+export function TransactionHashValidation() {
+  return function (target: any, propertyKey: string) {
+    ApiProperty({
+      description: 'Hash da transação blockchain',
+      example:
+        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+      pattern: HASH_TX.source,
+      minLength: HASH_TX_MIN_LENGTH,
+      maxLength: HASH_TX_MAX_LENGTH,
+    })(target, propertyKey);
+
+    IsString()(target, propertyKey);
+    IsNotEmpty()(target, propertyKey);
+    Matches(HASH_TX, {
+      message:
+        'Hash da transação deve ser válido (0x + 64 caracteres hexadecimais)',
+    })(target, propertyKey);
+  };
+}
+
+export function TimestampValidation(fieldName: string = 'timestamp') {
+  return function (target: any, propertyKey: string) {
+    ApiProperty({
+      description: `${fieldName} Unix (segundos desde 1970)`,
+      example: 1640995200,
+      minimum: 0,
+      type: 'integer',
+    })(target, propertyKey);
+
+    IsNumber()(target, propertyKey);
+    Min(0)(target, propertyKey);
+  };
+}
+
+export function BlockNumberValidation() {
+  return function (target: any, propertyKey: string) {
+    ApiProperty({
+      description: 'Número do bloco blockchain',
+      example: 18500000,
+      minimum: 0,
+      type: 'integer',
+    })(target, propertyKey);
+
+    IsNumber()(target, propertyKey);
+    Min(0)(target, propertyKey);
+  };
+}
+
+export function GasUsedValidation() {
+  return function (target: any, propertyKey: string) {
+    ApiProperty({
+      description: 'Gas usado na transação',
+      example: '21000',
+      pattern: '^[0-9]+$',
+    })(target, propertyKey);
+
+    IsString()(target, propertyKey);
+    Matches(/^[0-9]+$/, {
+      message: 'Gas usado deve ser um número válido em formato string',
+    })(target, propertyKey);
   };
 }

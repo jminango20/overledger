@@ -1,9 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
 import {
-  IsString,
-  IsNotEmpty,
-  Length,
-  Matches,
   IsEthereumAddress,
   IsArray,
   ArrayMinSize,
@@ -14,108 +10,15 @@ import {
   Max,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-
-// Constants for better maintainability and performance
-const CHANNEL_NAME_REGEX = /^[a-zA-Z0-9_-]+$/;
-const CHANNEL_NAME_ERROR_MESSAGE =
-  'channelName deve conter apenas letras, números, underscore e hífen';
-const CHANNEL_NAME_MIN_LENGTH = 1;
-const CHANNEL_NAME_MAX_LENGTH = 50;
-
-// Base validation decorator factory to avoid repetition
-function ChannelNameValidation() {
-  return function (target: any, propertyKey: string) {
-    ApiProperty({
-      description: 'Nome do canal',
-      example: 'my-awesome-channel',
-      minLength: CHANNEL_NAME_MIN_LENGTH,
-      maxLength: CHANNEL_NAME_MAX_LENGTH,
-    })(target, propertyKey);
-
-    IsString()(target, propertyKey);
-    IsNotEmpty()(target, propertyKey);
-    Length(CHANNEL_NAME_MIN_LENGTH, CHANNEL_NAME_MAX_LENGTH)(
-      target,
-      propertyKey,
-    );
-    Matches(CHANNEL_NAME_REGEX, { message: CHANNEL_NAME_ERROR_MESSAGE })(
-      target,
-      propertyKey,
-    );
-  };
-}
-
-function AddressValidation() {
-  return function (target: any, propertyKey: string) {
-    ApiProperty({
-      description: 'Endereço Ethereum',
-      example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
-    })(target, propertyKey);
-
-    IsString()(target, propertyKey);
-    IsNotEmpty()(target, propertyKey);
-    IsEthereumAddress()(target, propertyKey);
-  };
-}
+import {
+  BaseChannelMemberDto,
+  BaseChannelOperationDto,
+  BaseChannelResponseDto,
+  BaseChannelDto,
+  ChannelNameValidation,
+} from '@/common/dto';
 
 // Base class for channel name input
-abstract class BaseChannelDto {
-  @ChannelNameValidation()
-  channelName: string;
-}
-
-// Base response interface for transaction responses
-interface BaseTransactionResponse {
-  success: boolean;
-  transactionHash: string;
-  channelName: string;
-  blockNumber?: number;
-  gasUsed?: string;
-}
-
-// Base class for transaction responses to reduce duplication
-abstract class BaseChannelResponseDto implements BaseTransactionResponse {
-  @ApiProperty({
-    description: 'Se a operação foi bem-sucedida',
-    example: true,
-  })
-  success: boolean;
-
-  @ApiProperty({
-    description: 'Hash da transação',
-    example:
-      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-  })
-  transactionHash: string;
-
-  @ApiProperty({
-    description: 'Nome do canal',
-    example: 'my-awesome-channel',
-  })
-  channelName: string;
-
-  @ApiProperty({
-    description: 'Número do bloco onde a transação foi minerada',
-    example: 18500000,
-    required: false,
-  })
-  blockNumber?: number;
-
-  @ApiProperty({
-    description: 'Gas usado na transação',
-    example: '21000',
-    required: false,
-  })
-  gasUsed?: string;
-}
-
-// Base class for channel name input
-abstract class BaseChannelMemberDto {
-  @ChannelNameValidation()
-  channelName: string;
-  @AddressValidation()
-  addressMember: string;
-}
 
 // Specific DTOs extending base classes
 export class CreateChannelDto extends BaseChannelDto {}
@@ -136,16 +39,7 @@ export class NumberResponseDto {
 
 export class ChannelMemberDto extends BaseChannelMemberDto {}
 
-export class ChannelMembersDto {
-  @ApiProperty({
-    description: 'Nome do canal',
-    example: 'my-awesome-channel',
-  })
-  @IsString()
-  @IsNotEmpty()
-  @Length(1, 50)
-  channelName: string;
-
+export class ChannelMembersDto extends BaseChannelOperationDto {
   @ApiProperty({
     description: 'Array de endereços dos membros a serem adicionados',
     example: [
@@ -163,25 +57,7 @@ export class ChannelMembersDto {
   memberAddresses: string[];
 }
 
-export class CheckMemberDto {
-  @ApiProperty({
-    description: 'Nome do canal',
-    example: 'my-awesome-channel',
-  })
-  @IsString()
-  @IsNotEmpty()
-  @Length(1, 50)
-  channelName: string;
-
-  @ApiProperty({
-    description: 'Endereço do membro a ser verificado',
-    example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
-  })
-  @IsString()
-  @IsNotEmpty()
-  @IsEthereumAddress()
-  memberAddress: string;
-}
+export class CheckMemberDto extends BaseChannelMemberDto {}
 
 export class CheckMultipleMembersDto {
   @ApiProperty({
@@ -206,7 +82,7 @@ export class CheckMultipleMembersDto {
 //                    RESPONSES
 // =============================================================
 
-export class ChannelInfoResponseDto {
+export class ChannelInfoResponseDto extends BaseChannelDto {
   @ApiProperty({
     description: 'Se o canal existe',
     example: true,
@@ -236,12 +112,6 @@ export class ChannelInfoResponseDto {
     example: 1640995200,
   })
   createdAt: number;
-
-  @ApiProperty({
-    description: 'Nome do canal',
-    example: 'my-awesome-channel',
-  })
-  channelName: string;
 }
 
 export class DeactivateChannelResponseDto extends BaseChannelResponseDto {
@@ -251,26 +121,9 @@ export class DeactivateChannelResponseDto extends BaseChannelResponseDto {
   })
   declare channelName: string;
 }
-export class ActivateChannelResponseDto extends BaseChannelResponseDto {
-  @ApiProperty({
-    description: 'Canal ativado',
-    example: 'my-awesome-channel',
-  })
-  declare channelName: string;
-}
-export class CreateChannelResponseDto extends BaseChannelResponseDto {
-  @ApiProperty({
-    description: 'Nome do canal criado',
-    example: 'my-awesome-channel',
-  })
-  declare channelName: string;
-}
-export class NumberMembersInChannelResponseDto {
-  @ApiProperty({
-    description: 'Nome do canal',
-    example: 'my-awesome-channel',
-  })
-  channelName: string;
+export class ActivateChannelResponseDto extends BaseChannelResponseDto {}
+export class CreateChannelResponseDto extends BaseChannelResponseDto {}
+export class NumberMembersInChannelResponseDto extends BaseChannelResponseDto {
   @ApiProperty({
     description: 'Número de membros no canal',
     example: 10,
@@ -304,7 +157,7 @@ export class ChannelMembersResponseDto extends BaseChannelResponseDto {
   addressCount: number;
 }
 
-export class MembersResponseDto {
+export class MembersResponseDto extends BaseChannelResponseDto {
   @ApiProperty({
     description: 'Lista de endereços dos membros',
     example: [
@@ -338,12 +191,6 @@ export class MembersResponseDto {
     example: 1,
   })
   currentPage: number;
-
-  @ApiProperty({
-    description: 'Nome do canal',
-    example: 'my-awesome-channel',
-  })
-  channelName: string;
 }
 
 export class ChannelsResponseDto {
@@ -379,18 +226,12 @@ export class ChannelsResponseDto {
   currentPage: number;
 }
 
-export class MembershipCheckResponseDto {
+export class MembershipCheckResponseDto extends BaseChannelResponseDto {
   @ApiProperty({
     description: 'Se o endereço é membro do canal',
     example: true,
   })
   isMember: boolean;
-
-  @ApiProperty({
-    description: 'Nome do canal verificado',
-    example: 'my-awesome-channel',
-  })
-  channelName: string;
 
   @ApiProperty({
     description: 'Endereço verificado',
@@ -450,10 +291,8 @@ export class PaginationDto {
 export class GetMembersDto extends PaginationDto {
   @ApiProperty({
     description: 'Nome do canal',
-    example: 'my-awesome-channel',
+    example: 'channel-1',
   })
-  @IsString()
-  @IsNotEmpty()
-  @Length(1, 50)
+  @ChannelNameValidation()
   channelName: string;
 }

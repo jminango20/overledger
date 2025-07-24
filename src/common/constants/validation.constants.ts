@@ -25,6 +25,14 @@ export const DESCRIPTION_MAX_LENGTH = 255;
 export const DATA_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
 export const DATA_HASH_ERROR_MESSAGE =
   'dataHash deve ser um hash válido (0x + 64 caracteres hexadecimais)';
+export const HASH_TX = /^0x[a-fA-F0-9]{64}$/;
+export const HASH_TX_MIN_LENGTH = 66;
+export const HASH_TX_MAX_LENGTH = 66;
+
+// Ethereum address validations
+export const ETHEREUM_ADDRESS_REGEX = /^0x[a-fA-F0-9]{40}$/;
+export const ETHEREUM_ADDRESS_MIN_LENGTH = 42;
+export const ETHEREUM_ADDRESS_MAX_LENGTH = 42;
 
 // Version validations
 export const VERSION_MIN = 1;
