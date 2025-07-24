@@ -1,4 +1,4 @@
-import { Injectable, Logger, BadRequestException } from '@nestjs/common';
+import { Injectable, BadRequestException } from '@nestjs/common';
 import { ethers } from 'ethers';
 import {
   CreateSchemaDto,
@@ -22,31 +22,27 @@ import {
   SetSchemaStatusResponseDto,
   SchemaStatusConverter,
 } from './dto/schema-registry.dto';
-import { BlockchainProvider } from '../../blockchain/providers/blockchain.provider';
-import { ContractErrorHandler } from '../../common/utils/contract-error.handler';
+import { BlockchainProvider } from '@/blockchain/providers/blockchain.provider';
+import { ContractErrorHandler } from '@/common/utils/contract-error.handler';
+import { ABIName } from '@/blockchain/abis';
+import { BaseContractService } from '@/blockchain/services/base-contract.service';
 
 @Injectable()
-export class SchemaRegistryService {
-  private readonly logger = new Logger(SchemaRegistryService.name);
+export class SchemaRegistryService extends BaseContractService {
+  private readonly SCHEMA_REGISTRY_BYTES32: string;
 
-  private static readonly CACHE_TTL = 5 * 60 * 1000; // 5 minutes
-  private static readonly MAX_CACHE_SIZE = 100;
-  private readonly cacheTimestamps = new Map<string, number>();
-  private readonly contractAddressCache = new Map<
-    string,
-    {
-      address: string;
-      timestamp: number;
-      network: string;
-    }
-  >();
-
-  constructor(private readonly blockchainProvider: BlockchainProvider) {
-    this.SCHEMA_REGISTRY_BYTES32 =
-      this.blockchainProvider.stringToBytes32('SCHEMA_REGISTRY');
+  constructor(blockchainProvider: BlockchainProvider) {
+    super(blockchainProvider);
+    this.SCHEMA_REGISTRY_BYTES32 = this.toBytes32('SCHEMA_REGISTRY');
   }
 
-  private readonly SCHEMA_REGISTRY_BYTES32: string;
+  protected getContractNameBytes32(): string {
+    return this.SCHEMA_REGISTRY_BYTES32;
+  }
+
+  protected getContractABIName(): ABIName {
+    return 'SchemaRegistry';
+  }
 
   /**
    * Create a new schema
@@ -79,14 +75,12 @@ export class SchemaRegistryService {
       async (contract) => {
         // Preparar o struct SchemaInput para o contrato
         const schemaInput: SchemaInputContract = {
-          id: this.blockchainProvider.stringToBytes32(createDto.schemaId),
+          id: this.toBytes32(createDto.schemaId),
           name: createDto.name,
           dataHash: createDto.dataHash.startsWith('0x')
             ? createDto.dataHash
             : `0x${createDto.dataHash}`,
-          channelName: this.blockchainProvider.stringToBytes32(
-            createDto.channelName,
-          ),
+          channelName: this.toBytes32(createDto.channelName),
           description: createDto.description || '',
         };
 
@@ -130,12 +124,8 @@ export class SchemaRegistryService {
       deprecateDto.channelName,
       privateKey,
       async (contract) => {
-        const schemaIdBytes32 = this.blockchainProvider.stringToBytes32(
-          deprecateDto.schemaId,
-        );
-        const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
-          deprecateDto.channelName,
-        );
+        const schemaIdBytes32 = this.toBytes32(deprecateDto.schemaId);
+        const channelNameBytes32 = this.toBytes32(deprecateDto.channelName);
 
         this.logger.debug(`Chamando deprecateSchema com:`, {
           schemaId: deprecateDto.schemaId,
@@ -183,13 +173,11 @@ export class SchemaRegistryService {
       async (contract) => {
         // Preparar o struct SchemaUpdateInput para o contrato
         const schemaUpdateInput: SchemaUpdateInputContract = {
-          id: this.blockchainProvider.stringToBytes32(updateDto.schemaId),
+          id: this.toBytes32(updateDto.schemaId),
           newDataHash: updateDto.newDataHash.startsWith('0x')
             ? updateDto.newDataHash
             : `0x${updateDto.newDataHash}`,
-          channelName: this.blockchainProvider.stringToBytes32(
-            updateDto.channelName,
-          ),
+          channelName: this.toBytes32(updateDto.channelName),
           description: updateDto.description || '',
         };
 
@@ -236,12 +224,8 @@ export class SchemaRegistryService {
       inactivateDto.version,
       privateKey,
       async (contract) => {
-        const schemaIdBytes32 = this.blockchainProvider.stringToBytes32(
-          inactivateDto.schemaId,
-        );
-        const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
-          inactivateDto.channelName,
-        );
+        const schemaIdBytes32 = this.toBytes32(inactivateDto.schemaId);
+        const channelNameBytes32 = this.toBytes32(inactivateDto.channelName);
 
         this.logger.debug(`Chamando inactivateSchema com:`, {
           schemaId: inactivateDto.schemaId,
@@ -291,10 +275,8 @@ export class SchemaRegistryService {
       setSchemaStatusDto.version,
       privateKey,
       async (contract) => {
-        const schemaIdBytes32 = this.blockchainProvider.stringToBytes32(
-          setSchemaStatusDto.schemaId,
-        );
-        const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
+        const schemaIdBytes32 = this.toBytes32(setSchemaStatusDto.schemaId);
+        const channelNameBytes32 = this.toBytes32(
           setSchemaStatusDto.channelName,
         );
 
@@ -340,14 +322,12 @@ export class SchemaRegistryService {
     try {
       const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
 
-      const contract = await this.getSchemaRegistryContract(tempPrivateKey);
+      const contract = await this.getContractInstance(tempPrivateKey);
 
-      const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
+      const channelNameBytes32 = this.toBytes32(
         getSchemaByVersionDto.channelName,
       );
-      const schemaIdBytes32 = this.blockchainProvider.stringToBytes32(
-        getSchemaByVersionDto.schemaId,
-      );
+      const schemaIdBytes32 = this.toBytes32(getSchemaByVersionDto.schemaId);
 
       const result = await contract.getSchemaByVersion(
         channelNameBytes32,
@@ -355,22 +335,15 @@ export class SchemaRegistryService {
         getSchemaByVersionDto.version,
       );
 
-      return this.parseSchemaFromContract(result);
+      return this.parseSchemaFromContract(
+        result,
+        getSchemaByVersionDto.schemaId,
+        getSchemaByVersionDto.channelName,
+      );
     } catch (error) {
       this.logger.error(`Erro ao buscar schema: ${error.message}`, error.stack);
 
-      const customError = ContractErrorHandler.parseContractError(error);
-      if (customError) {
-        throw customError;
-      }
-
-      if (error.code === 'CALL_EXCEPTION') {
-        throw new BadRequestException(
-          'Erro na chamada do contrato. Verifique se o schema existe no canal.',
-        );
-      }
-
-      throw error;
+      return this.handleContractViewError(error, 'getSchemaByVersion');
     }
   }
 
@@ -385,39 +358,28 @@ export class SchemaRegistryService {
     try {
       const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
 
-      const contract = await this.getSchemaRegistryContract(tempPrivateKey);
+      const contract = await this.getContractInstance(tempPrivateKey);
 
-      const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
-        getSchemaDto.channelName,
-      );
-      const schemaIdBytes32 = this.blockchainProvider.stringToBytes32(
-        getSchemaDto.schemaId,
-      );
+      const channelNameBytes32 = this.toBytes32(getSchemaDto.channelName);
+      const schemaIdBytes32 = this.toBytes32(getSchemaDto.schemaId);
 
       const result = await contract.getActiveSchema(
         channelNameBytes32,
         schemaIdBytes32,
       );
 
-      return this.parseSchemaFromContract(result);
+      return this.parseSchemaFromContract(
+        result,
+        getSchemaDto.schemaId,
+        getSchemaDto.channelName,
+      );
     } catch (error) {
       this.logger.error(
         `Erro ao buscar schema ativo: ${error.message}`,
         error.stack,
       );
 
-      const customError = ContractErrorHandler.parseContractError(error);
-      if (customError) {
-        throw customError;
-      }
-
-      if (error.code === 'CALL_EXCEPTION') {
-        throw new BadRequestException(
-          'Erro na chamada do contrato. Verifique se o schema existe e está ativo no canal.',
-        );
-      }
-
-      throw error;
+      return this.handleContractViewError(error, 'getActiveSchema');
     }
   }
 
@@ -433,21 +395,21 @@ export class SchemaRegistryService {
 
     try {
       const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
-      const contract = await this.getSchemaRegistryContract(tempPrivateKey);
+      const contract = await this.getContractInstance(tempPrivateKey);
 
-      const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
-        getSchemaDto.channelName,
-      );
-      const schemaIdBytes32 = this.blockchainProvider.stringToBytes32(
-        getSchemaDto.schemaId,
-      );
+      const channelNameBytes32 = this.toBytes32(getSchemaDto.channelName);
+      const schemaIdBytes32 = this.toBytes32(getSchemaDto.schemaId);
 
       const result = await contract.getLatestSchema(
         channelNameBytes32,
         schemaIdBytes32,
       );
 
-      const schema = this.parseSchemaFromContract(result);
+      const schema = this.parseSchemaFromContract(
+        result,
+        getSchemaDto.schemaId,
+        getSchemaDto.channelName,
+      );
 
       // Verificar se esta é também a versão ativa
       let isActiveVersion = false;
@@ -500,14 +462,10 @@ export class SchemaRegistryService {
 
     try {
       const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
-      const contract = await this.getSchemaRegistryContract(tempPrivateKey);
+      const contract = await this.getContractInstance(tempPrivateKey);
 
-      const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
-        getSchemaDto.channelName,
-      );
-      const schemaIdBytes32 = this.blockchainProvider.stringToBytes32(
-        getSchemaDto.schemaId,
-      );
+      const channelNameBytes32 = this.toBytes32(getSchemaDto.channelName);
+      const schemaIdBytes32 = this.toBytes32(getSchemaDto.schemaId);
 
       // Obter todas as versões
       const result = await contract.getSchemaVersions(
@@ -571,14 +529,10 @@ export class SchemaRegistryService {
     try {
       const tempPrivateKey = ethers.Wallet.createRandom().privateKey;
 
-      const contract = await this.getSchemaRegistryContract(tempPrivateKey);
+      const contract = await this.getContractInstance(tempPrivateKey);
 
-      const channelNameBytes32 = this.blockchainProvider.stringToBytes32(
-        getSchemaDto.channelName,
-      );
-      const schemaIdBytes32 = this.blockchainProvider.stringToBytes32(
-        getSchemaDto.schemaId,
-      );
+      const channelNameBytes32 = this.toBytes32(getSchemaDto.channelName);
+      const schemaIdBytes32 = this.toBytes32(getSchemaDto.schemaId);
 
       const result = await contract.getSchemaInfo(
         channelNameBytes32,
@@ -652,7 +606,7 @@ export class SchemaRegistryService {
     );
 
     try {
-      const contract = await this.getSchemaRegistryContract(privateKey);
+      const contract = await this.getContractInstance(privateKey);
       const walletAddress =
         await this.blockchainProvider.getWalletAddress(privateKey);
 
@@ -700,15 +654,13 @@ export class SchemaRegistryService {
       );
 
       return {
-        success: true,
-        transactionHash: tx.hash,
-        schemaId: responseSchemaId,
-        name,
-        version: eventCreatedVersion,
-        channelName: responseChannelName,
-        owner: walletAddress,
-        blockNumber: receipt?.blockNumber,
-        gasUsed: receipt?.gasUsed?.toString(),
+        ...this.buildTransactionResponse(tx, receipt, {
+          schemaId: responseSchemaId,
+          name,
+          version: eventCreatedVersion,
+          channelName: responseChannelName,
+          owner: walletAddress,
+        }),
       } as T;
     } catch (error) {
       const duration = Date.now() - startTime;
@@ -745,7 +697,7 @@ export class SchemaRegistryService {
     );
 
     try {
-      const contract = await this.getSchemaRegistryContract(privateKey);
+      const contract = await this.getContractInstance(privateKey);
       const walletAddress =
         await this.blockchainProvider.getWalletAddress(privateKey);
 
@@ -834,7 +786,7 @@ export class SchemaRegistryService {
     );
 
     try {
-      const contract = await this.getSchemaRegistryContract(privateKey);
+      const contract = await this.getContractInstance(privateKey);
       const walletAddress =
         await this.blockchainProvider.getWalletAddress(privateKey);
 
@@ -935,7 +887,7 @@ export class SchemaRegistryService {
     );
 
     try {
-      const contract = await this.getSchemaRegistryContract(privateKey);
+      const contract = await this.getContractInstance(privateKey);
       const walletAddress =
         await this.blockchainProvider.getWalletAddress(privateKey);
 
@@ -1033,7 +985,7 @@ export class SchemaRegistryService {
     );
 
     try {
-      const contract = await this.getSchemaRegistryContract(privateKey);
+      const contract = await this.getContractInstance(privateKey);
       const walletAddress =
         await this.blockchainProvider.getWalletAddress(privateKey);
 
@@ -1111,153 +1063,26 @@ export class SchemaRegistryService {
   }
 
   /**
-   * Get contract address from blockchain
-   */
-  private async getSchemaRegistryContract(
-    privateKey: string,
-  ): Promise<ethers.Contract> {
-    const network = await this.blockchainProvider.provider.getNetwork();
-    const cacheKey = `process_registry_${network.chainId}`;
-    const now = Date.now();
-
-    let cached = this.contractAddressCache.get(cacheKey);
-    const isExpired =
-      !cached || now - cached.timestamp > SchemaRegistryService.CACHE_TTL;
-
-    if (!cached || isExpired) {
-      const addressDiscoveryContract = this.blockchainProvider.getContract(
-        'AddressDiscovery',
-        privateKey,
-      );
-
-      const contractAddress = await addressDiscoveryContract.getContractAddress(
-        this.SCHEMA_REGISTRY_BYTES32,
-      );
-
-      if (!contractAddress) {
-        throw new Error('Erro ao obter endereço do SchemaRegistry');
-      }
-
-      const newCacheEntry = {
-        address: contractAddress,
-        timestamp: now,
-        network: network.name,
-      };
-
-      this.contractAddressCache.set(cacheKey, newCacheEntry);
-
-      if (
-        this.contractAddressCache.size > SchemaRegistryService.MAX_CACHE_SIZE
-      ) {
-        this.clearOldestCacheEntry();
-      }
-
-      this.logger.debug(`Endereço SchemaRegistry cached: ${contractAddress}`);
-
-      cached = newCacheEntry;
-    }
-
-    return this.blockchainProvider.getContract(
-      'SchemaRegistry',
-      privateKey,
-      cached.address,
-    );
-  }
-
-  /**
    * Parse schema from contract response
    */
-  private parseSchemaFromContract(contractResult: any): SchemaDto {
+  private parseSchemaFromContract(
+    contractResult: any,
+    schemaId?: string,
+    channelName?: string,
+  ): SchemaDto {
     const statusNumber = Number(contractResult.status) as SchemaStatus;
 
     return {
-      id: this.blockchainProvider.bytes32ToString(contractResult.id),
+      id: schemaId ?? this.fromBytes32(contractResult.id),
       name: contractResult.name,
       version: Number(contractResult.version),
       dataHash: contractResult.dataHash,
       owner: contractResult.owner,
-      channelName: this.blockchainProvider.bytes32ToString(
-        contractResult.channelName,
-      ),
-      statusName: SchemaStatus[statusNumber],
+      channelName: channelName ?? this.fromBytes32(contractResult.channelName),
+      status: SchemaStatus[statusNumber],
       createdAt: Number(contractResult.createdAt),
       updatedAt: Number(contractResult.updatedAt),
       description: contractResult.description,
-    };
-  }
-
-  /**
-   * Handler errors from contract
-   */
-  private handleContractError(
-    error: any,
-    operationName: string,
-    schemaId: string,
-    channelName: string,
-  ): never {
-    this.logger.error(
-      `Erro ao executar ${operationName} para schema ${schemaId} no canal ${channelName}: ${error.message}`,
-      error.stack,
-    );
-
-    const customError = ContractErrorHandler.parseContractError(error);
-    if (customError) {
-      throw customError;
-    }
-
-    if (error.code === 'CALL_EXCEPTION') {
-      throw new BadRequestException(
-        'Erro na chamada do contrato. Verifique os parâmetros.',
-      );
-    }
-
-    if (error.code === 'NETWORK_ERROR') {
-      throw new BadRequestException(
-        'Erro de rede. Tente novamente em alguns instantes.',
-      );
-    }
-
-    throw error;
-  }
-
-  // =============================================================
-  //                    CACHE MANAGEMENT
-  // =============================================================
-
-  public clearAddressCache(): void {
-    const beforeSize = this.contractAddressCache.size;
-    this.contractAddressCache.clear();
-    this.cacheTimestamps.clear();
-    this.logger.log(`Cache limpo: ${beforeSize} entradas removidas`);
-  }
-
-  private clearOldestCacheEntry(): void {
-    const oldestKey = [...this.cacheTimestamps.entries()].sort(
-      ([, a], [, b]) => a - b,
-    )[0]?.[0];
-
-    if (oldestKey) {
-      this.contractAddressCache.delete(oldestKey);
-      this.cacheTimestamps.delete(oldestKey);
-    }
-  }
-
-  public getCacheStats(): {
-    size: number;
-    maxSize: number;
-    keys: string[];
-    oldestEntry?: string;
-    newestEntry?: string;
-  } {
-    const timestamps = [...this.cacheTimestamps.entries()];
-    const sorted = timestamps.sort(([, a], [, b]) => a - b);
-
-    return {
-      size: this.contractAddressCache.size,
-      maxSize: SchemaRegistryService.MAX_CACHE_SIZE,
-      keys: Array.from(this.contractAddressCache.keys()),
-      oldestEntry: sorted[0]?.[0],
-      newestEntry: sorted[sorted.length - 1]?.[0],
     };
   }
 }

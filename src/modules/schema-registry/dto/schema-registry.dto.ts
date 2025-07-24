@@ -47,10 +47,10 @@ function SchemaStatusValidation() {
 // =============================================================
 
 export class CreateSchemaDto {
-  @IdValidation('do schema', 'user-profile-schema')
+  @IdValidation('ID do schema', 'user-profile-schema')
   schemaId: string;
 
-  @NameValidation('do schema')
+  @NameValidation('Nome do schema')
   name: string;
 
   @DataHashValidation()
@@ -64,7 +64,7 @@ export class CreateSchemaDto {
 }
 
 export class UpdateSchemaDto {
-  @IdValidation('do schema', 'user-profile-schema')
+  @IdValidation('ID do schema', 'user-profile-schema')
   schemaId: string;
 
   @DataHashValidation()
@@ -78,7 +78,7 @@ export class UpdateSchemaDto {
 }
 
 export class DeprecateSchemaDto {
-  @IdValidation('do schema', 'user-profile-schema')
+  @IdValidation('ID do schema', 'user-profile-schema')
   schemaId: string;
 
   @ChannelNameValidation()
@@ -86,7 +86,7 @@ export class DeprecateSchemaDto {
 }
 
 export class InactivateSchemaDto {
-  @IdValidation('do schema', 'user-profile-schema')
+  @IdValidation('ID do schema', 'user-profile-schema')
   schemaId: string;
 
   @VersionValidation()
@@ -97,7 +97,7 @@ export class InactivateSchemaDto {
 }
 
 export class SetSchemaStatusDto {
-  @IdValidation('do schema', 'user-profile-schema')
+  @IdValidation('ID do schema', 'user-profile-schema')
   schemaId: string;
 
   @VersionValidation()
@@ -320,7 +320,7 @@ export class SchemaDto {
     example: SchemaStatus.ACTIVE,
     enum: ['ACTIVE', 'DEPRECATED', 'INACTIVE'],
   })
-  statusName: string;
+  status: string;
 
   @ApiProperty({
     description: 'Timestamp de criação (Unix timestamp)',
@@ -391,7 +391,7 @@ export class SchemaInfoResponseDto {
 // =============================================================
 
 export class GetSchemaDto {
-  @IdValidation('do schema', 'user-profile-schema')
+  @IdValidation('ID do schema', 'user-profile-schema')
   schemaId: string;
 
   @ChannelNameValidation()
@@ -506,7 +506,24 @@ export interface SchemaStatusChangedEventDto {
 export class SchemaStatusConverter extends BaseEnumConverter<
   typeof SchemaStatus
 > {
+  private static _instance: SchemaStatusConverter;
+
   constructor() {
     super(SchemaStatus, 'schema status');
+  }
+
+  static getInstance(): SchemaStatusConverter {
+    if (!this._instance) {
+      this._instance = new SchemaStatusConverter();
+    }
+    return this._instance;
+  }
+
+  static stringToEnum(value: string): SchemaStatus {
+    return this.getInstance().stringToEnum(value);
+  }
+
+  static enumToString(enumValue: SchemaStatus): string {
+    return this.getInstance().enumToString(enumValue);
   }
 }
