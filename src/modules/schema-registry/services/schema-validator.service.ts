@@ -1,11 +1,7 @@
-// services/schema-validator.service.ts
 import { Injectable, BadRequestException } from '@nestjs/common';
 
 @Injectable()
 export class SchemaValidator {
-  /**
-   * Central validation method (replaces your validateSchemaInput)
-   */
   validateSchemaInput(dto: any, requiredFields: string[]): void {
     for (const field of requiredFields) {
       if (!dto[field]?.trim?.() && dto[field] !== 0) {
@@ -14,18 +10,12 @@ export class SchemaValidator {
     }
   }
 
-  /**
-   * Version validation (replaces your validateVersion)
-   */
   validateVersion(version: number): void {
     if (!version || version < 1) {
       throw new BadRequestException('Versão deve ser maior que 0');
     }
   }
 
-  /**
-   * BONUS: More specific validations for better UX
-   */
   validateDataHash(dataHash: string): void {
     if (!dataHash) {
       throw new BadRequestException('DataHash é obrigatório');

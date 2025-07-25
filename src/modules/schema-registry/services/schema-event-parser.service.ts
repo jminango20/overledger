@@ -1,4 +1,3 @@
-// services/schema-event-parser.service.ts
 import { Injectable, Logger } from '@nestjs/common';
 import { ethers } from 'ethers';
 import { SchemaStatus } from '../dto/schema-registry.dto';
@@ -8,7 +7,7 @@ export class SchemaEventParser {
   private readonly logger = new Logger(SchemaEventParser.name);
 
   /**
-   * Parse version from any schema event (replaces your parseEventVersion)
+   * Parse version from any schema event
    */
   parseVersion(
     receipt: ethers.TransactionReceipt | null,
@@ -37,7 +36,7 @@ export class SchemaEventParser {
   }
 
   /**
-   * Parse previous version from update events (replaces parseEventPreviousVersion)
+   * Parse previous version from update events
    */
   parsePreviousVersion(
     receipt: ethers.TransactionReceipt | null,
@@ -64,7 +63,7 @@ export class SchemaEventParser {
   }
 
   /**
-   * Parse new version from update events (replaces parseEventNewVersion)
+   * Parse new version from update events
    */
   parseNewVersion(
     receipt: ethers.TransactionReceipt | null,
@@ -91,7 +90,7 @@ export class SchemaEventParser {
   }
 
   /**
-   * Parse previous status from status change events (replaces parseEventPreviousStatus)
+   * Parse previous status from status change events
    */
   parsePreviousStatus(
     receipt: ethers.TransactionReceipt | null,

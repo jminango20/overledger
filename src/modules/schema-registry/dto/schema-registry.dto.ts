@@ -7,9 +7,9 @@ import {
   DataHashValidation,
   DescriptionValidation,
   VersionValidation,
-} from '../../../common/decorators/validation.decorators';
-import { BaseEnumConverter } from '../../../common/utils/enum-converter.base';
-import { BaseTransactionResponseDto } from '../../../common/dto/base-response.dto';
+} from '@/common/decorators/validation.decorators';
+import { BaseEnumConverter } from '@/common/utils/enum-converter.base';
+import { BaseTransactionResponseDto } from '@/common/dto/base-response.dto';
 
 // Schema Status Enum
 export enum SchemaStatus {
