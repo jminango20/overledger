@@ -341,7 +341,7 @@ export class ContractErrorHandler {
       if (
         errorData.startsWith(
           PROCESS_REGISTRY_SELECTORS[
-            'InvalidStatusTransition(uint8,uint8,string)'
+            'InvalidProcessStatusTransition(uint8,uint8,string)'
           ],
         )
       ) {
@@ -608,6 +608,9 @@ export class ContractErrorHandler {
 
     const addressDiscoveryError = this.parseAddressDiscoveryError(error);
     if (addressDiscoveryError) return addressDiscoveryError;
+
+    const processRegistryError = this.parseProcessRegistryError(error);
+    if (processRegistryError) return processRegistryError;
 
     return null;
   }

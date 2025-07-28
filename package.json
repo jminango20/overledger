@@ -28,7 +28,10 @@
     "docker:down": "docker-compose down",
     "docker:logs": "docker-compose logs -f",
     "dev:setup": "npm run docker:up && sleep 10 && npm run db:setup",
-    "dev:full": "npm run dev:setup && npm run start:dev"
+    "dev:full": "npm run dev:setup && npm run start:dev",
+    "test-access-channel": "ts-node test/test-access-channel-manager.ts",
+    "test-schema-registry": "ts-node test/test-schema-registry.ts",
+    "test-process-registry": "ts-node test/test-process-registry.ts"
   },
   "dependencies": {
     "@nestjs/common": "^11.0.1",

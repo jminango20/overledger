@@ -20,6 +20,7 @@ import {
 import { MAX_SCHEMAS_PER_PROCESS } from '../../../common/constants/validation.constants';
 import { BaseEnumConverter } from '../../../common/utils/enum-converter.base';
 import { BaseTransactionResponseDto } from '../../../common/dto/base-response.dto';
+import { Transform } from 'class-transformer';
 
 // =============================================================
 //                        ENUMS
@@ -64,12 +65,35 @@ function ProcessActionValidation() {
   return function (target: any, propertyKey: string) {
     ApiProperty({
       description: 'Ação do processo',
-      enum: PROCESS_ACTION_STRINGS,
-      example: 'CREATE',
+      enum: [...PROCESS_ACTION_STRINGS],
+      example: 'CREATE_ASSET',
+      oneOf: [
+        { type: 'string', enum: [...PROCESS_ACTION_STRINGS] },
+        {
+          type: 'number',
+          enum: Object.values(ProcessAction).filter(
+            (v) => typeof v === 'number',
+          ),
+        },
+      ],
     })(target, propertyKey);
+
     IsEnum(ProcessAction, {
       message:
         'action deve ser um dos valores: CREATE_ASSET, UPDATE_ASSET, CREATE_DOCUMENT, TRANSFER_ASSET, TRANSFORM_ASSET, SPLIT_ASSET, GROUP_ASSET, UNGROUP_ASSET, INACTIVATE_ASSET',
+    })(target, propertyKey);
+
+    Transform(({ value }) => {
+      if (typeof value === 'string') {
+        const upperValue = value.toUpperCase();
+
+        if (PROCESS_ACTION_STRINGS.includes(upperValue as any)) {
+          return ProcessAction[upperValue as keyof typeof ProcessAction];
+        }
+      }
+
+      // Si no es string válido, devolver el valor original para que IsEnum lo rechace
+      return value;
     })(target, propertyKey);
   };
 }
@@ -78,8 +102,43 @@ function ProcessStatusValidation() {
   return function (target: any, propertyKey: string) {
     ApiProperty({
       description: 'Status do processo',
-      enum: PROCESS_STATUS_STRINGS,
+      enum: [...PROCESS_STATUS_STRINGS],
       example: 'ACTIVE',
+      oneOf: [
+        { type: 'string', enum: [...PROCESS_STATUS_STRINGS] },
+        {
+          type: 'number',
+          enum: Object.values(ProcessStatus).filter(
+            (v) => typeof v === 'number',
+          ),
+        },
+      ],
+    })(target, propertyKey);
+    Transform(({ value }) => {
+      // If it's already a valid enum number, return it
+      if (
+        typeof value === 'number' &&
+        Object.values(ProcessStatus).includes(value)
+      ) {
+        return value;
+      }
+
+      // If it's a string, convert to enum
+      if (typeof value === 'string') {
+        const upperValue = value.toUpperCase();
+
+        if (PROCESS_STATUS_STRINGS.includes(upperValue as any)) {
+          return ProcessStatus[upperValue as keyof typeof ProcessStatus];
+        }
+
+        throw new Error(
+          `Invalid process status: ${value}. Must be one of: ${PROCESS_STATUS_STRINGS.join(', ')} or numeric value 0-1`,
+        );
+      }
+
+      throw new Error(
+        `Process status must be a string (${PROCESS_STATUS_STRINGS.join(', ')}) or number (0-1)`,
+      );
     })(target, propertyKey);
     IsEnum(ProcessStatus, {
       message: 'status deve ser um dos valores: ACTIVE, INACTIVE',
@@ -117,13 +176,13 @@ export class SchemaReferenceDto {
 // =============================================================
 
 export class CreateProcessDto {
-  @IdValidation('do processo', 'coffee-process')
+  @IdValidation('ID do processo', 'coffee-process')
   processId: string;
 
-  @IdValidation('da natureza', 'coffee-onboarding')
+  @IdValidation('ID da natureza', 'coffee-onboarding')
   natureId: string;
 
-  @IdValidation('do estágio', 'coffee-verification')
+  @IdValidation('ID do estágio', 'coffee-verification')
   stageId: string;
 
   @ApiProperty({
@@ -148,13 +207,13 @@ export class CreateProcessDto {
 }
 
 export class UpdateProcessStatusDto {
-  @IdValidation('do processo', 'coffee-process')
+  @IdValidation('ID do processo', 'coffee-process')
   processId: string;
 
-  @IdValidation('da natureza', 'coffee-onboarding')
+  @IdValidation('ID da natureza', 'coffee-onboarding')
   natureId: string;
 
-  @IdValidation('do estágio', 'coffee-verification')
+  @IdValidation('ID do estágio', 'coffee-verification')
   stageId: string;
 
   @ChannelNameValidation()
@@ -165,13 +224,13 @@ export class UpdateProcessStatusDto {
 }
 
 export class InactivateProcessDto {
-  @IdValidation('do processo', 'coffee-process')
+  @IdValidation('ID do processo', 'coffee-process')
   processId: string;
 
-  @IdValidation('da natureza', 'coffee-onboarding')
+  @IdValidation('ID da natureza', 'coffee-onboarding')
   natureId: string;
 
-  @IdValidation('do estágio', 'coffee-verification')
+  @IdValidation('ID do estágio', 'coffee-verification')
   stageId: string;
 
   @ChannelNameValidation()
@@ -179,13 +238,13 @@ export class InactivateProcessDto {
 }
 
 export class GetProcessDto {
-  @IdValidation('do processo', 'coffee-process')
+  @IdValidation('ID do processo', 'coffee-process')
   processId: string;
 
-  @IdValidation('da natureza', 'coffee-onboarding')
+  @IdValidation('ID da natureza', 'coffee-onboarding')
   natureId: string;
 
-  @IdValidation('do estágio', 'coffee-verification')
+  @IdValidation('ID do estágio', 'coffee-verification')
   stageId: string;
 
   @ChannelNameValidation()
@@ -230,7 +289,7 @@ export class CreateProcessResponseDto extends BaseTransactionResponseDto {
   @ApiProperty({
     description: 'Ação do processo',
     enum: PROCESS_ACTION_STRINGS,
-    example: 'CREATE',
+    example: 'CREATE_ASSET',
   })
   action: string;
 }
@@ -252,7 +311,7 @@ export class UpdateProcessStatusResponseDto extends BaseTransactionResponseDto {
   @ApiProperty({
     description: 'Novo status',
     enum: PROCESS_STATUS_STRINGS,
-    example: 'COMPLETED',
+    example: 'INACTIVE',
   })
   newStatus: string;
 
@@ -297,7 +356,7 @@ export class ProcessDto {
   @ApiProperty({
     description: 'Ação do processo',
     enum: PROCESS_ACTION_STRINGS,
-    example: 'CREATE',
+    example: 'CREATE_ASSET',
   })
   action: string;
 
@@ -380,15 +439,47 @@ export interface ProcessInputContract {
 export class ProcessStatusConverter extends BaseEnumConverter<
   typeof ProcessStatus
 > {
+  private static _instance: ProcessStatusConverter;
+
   constructor() {
     super(ProcessStatus, 'process status');
+  }
+  static getInstance(): ProcessStatusConverter {
+    if (!ProcessStatusConverter._instance) {
+      ProcessStatusConverter._instance = new ProcessStatusConverter();
+    }
+    return ProcessStatusConverter._instance;
+  }
+
+  static stringToEnum(value: string): ProcessStatus {
+    return ProcessStatusConverter.getInstance().stringToEnum(value);
+  }
+
+  static enumToString(enumValue: ProcessStatus): string {
+    return ProcessStatusConverter.getInstance().enumToString(enumValue);
   }
 }
 
 export class ProcessActionConverter extends BaseEnumConverter<
   typeof ProcessAction
 > {
+  private static _instance: ProcessActionConverter;
   constructor() {
     super(ProcessAction, 'process action');
+  }
+
+  static getInstance(): ProcessActionConverter {
+    if (!this._instance) {
+      this._instance = new ProcessActionConverter();
+    }
+    return this._instance;
+  }
+
+  static stringToEnum(value: string): ProcessAction {
+    return this.getInstance().stringToEnum(value);
+  }
+
+  static enumToString(enumValue: ProcessAction): string {
+    return this.getInstance().enumToString(enumValue);
   }
 }

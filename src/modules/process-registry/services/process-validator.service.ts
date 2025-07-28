@@ -12,8 +12,18 @@ import { MAX_SCHEMAS_PER_PROCESS } from '../../../common/constants/validation.co
 export class ProcessValidator {
   validateProcessInput(dto: any, requiredFields: string[]): void {
     for (const field of requiredFields) {
-      if (!dto[field]?.trim?.() && dto[field] !== 0) {
+      const value = dto[field];
+
+      if (value === undefined || value === null) {
         throw new BadRequestException(`${field} é obrigatório`);
+      }
+
+      if (typeof value === 'string' && !value.trim()) {
+        throw new BadRequestException(`${field} é obrigatório`);
+      }
+
+      if (field === 'action' && (typeof value !== 'number' || value < 0)) {
+        throw new BadRequestException(`${field} deve ser um número válido`);
       }
     }
   }
@@ -21,13 +31,23 @@ export class ProcessValidator {
   /**
    * Validate schemas array
    */
-  validateSchemas(schemas: SchemaReferenceDto[]): void {
+  validateSchemas(schemas: SchemaReferenceDto[], action?: ProcessAction): void {
     if (!schemas || !Array.isArray(schemas)) {
       throw new BadRequestException('Schemas deve ser um array válido');
     }
 
-    if (schemas.length === 0) {
-      throw new BadRequestException('Pelo menos um schema é obrigatório');
+    if (action !== undefined) {
+      const actionsRequiringSchemas = [
+        ProcessAction.CREATE_ASSET,
+        ProcessAction.CREATE_DOCUMENT,
+        ProcessAction.UPDATE_ASSET,
+      ];
+
+      if (actionsRequiringSchemas.includes(action) && schemas.length === 0) {
+        throw new BadRequestException(
+          `A ação ${ProcessAction[action]} requer pelo menos um schema`,
+        );
+      }
     }
 
     if (schemas.length > MAX_SCHEMAS_PER_PROCESS) {

@@ -9,7 +9,7 @@ export class ProcessEventParser {
   /**
    * Parse process ID from ProcessCreated event
    */
-  parseProcessID(
+  parseProcessId(
     receipt: ethers.TransactionReceipt | null,
     eventName: string,
   ): string | null {
@@ -309,7 +309,7 @@ export class ProcessEventParser {
     const eventName = 'ProcessCreated';
 
     return {
-      processId: this.parseProcessID(receipt, eventName),
+      processId: this.parseProcessId(receipt, eventName),
       natureId: this.parseNatureId(receipt, eventName),
       stageId: this.parseStageId(receipt, eventName),
       action: this.parseAction(receipt, eventName),

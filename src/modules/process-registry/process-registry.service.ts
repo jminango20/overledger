@@ -54,7 +54,7 @@ export class ProcessRegistryService extends BaseContractService {
       'action',
     ]);
 
-    this.validator.validateSchemas(createDto.schemas);
+    this.validator.validateSchemas(createDto.schemas, createDto.action);
 
     return this.executeTransactionOperation(
       'createProcess',
@@ -199,6 +199,8 @@ export class ProcessRegistryService extends BaseContractService {
         return this.parseProcessFromContract(
           result,
           getProcessDto.processId,
+          getProcessDto.natureId,
+          getProcessDto.stageId,
           getProcessDto.channelName,
         );
       },
@@ -222,7 +224,11 @@ export class ProcessRegistryService extends BaseContractService {
           this.toBytes32(channelName),
         );
 
-        return result.processes.map((process: any) =>
+        if (!result || !Array.isArray(result)) {
+          return []; // Retornar array vacío en lugar de error
+        }
+
+        return result.map((process: any) =>
           this.parseProcessFromContract(process),
         );
       },
@@ -298,6 +304,8 @@ export class ProcessRegistryService extends BaseContractService {
   private parseProcessFromContract(
     contractResult: any,
     processId?: string,
+    natureId?: string,
+    stageId?: string,
     channelName?: string,
   ): ProcessDto {
     const statusNumber = Number(contractResult.status) as ProcessStatus;
@@ -305,8 +313,8 @@ export class ProcessRegistryService extends BaseContractService {
 
     return {
       processId: processId ?? this.fromBytes32(contractResult.processId),
-      natureId: this.fromBytes32(contractResult.natureId),
-      stageId: this.fromBytes32(contractResult.stageId),
+      natureId: natureId ?? this.fromBytes32(contractResult.natureId),
+      stageId: stageId ?? this.fromBytes32(contractResult.stageId),
       schemas: contractResult.schemas.map((schema: any) => ({
         schemaId: this.fromBytes32(schema.schemaId),
         version: Number(schema.version),
