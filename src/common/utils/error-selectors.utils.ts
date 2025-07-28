@@ -75,6 +75,26 @@ export const SCHEMA_REGISTRY_ERRORS = [
 ];
 
 /**
+ * Customized errors for ProcessRegistry
+ */
+export const PROCESS_REGISTRY_ERRORS = [
+  'InvalidProcessId()',
+  'InvalidNatureId()',
+  'InvalidStageId()',
+  'ProcessAlreadyExists(bytes32,bytes32,bytes32,bytes32)',
+  'ProcessNotFound(bytes32,bytes32)',
+  'ProcessAlreadyInactive(bytes32,bytes32)',
+  'NotProcessOwner(bytes32,bytes32,address)',
+  'SchemasRequiredForAction(uint8)',
+  'DuplicateSchemaInList(bytes32,uint256)',
+  'SchemaNotActiveInChannel(bytes32,bytes32,uint256)',
+  'SchemaNotFoundInChannel(bytes32,bytes32,uint256)',
+  'DescriptionTooLong()',
+  'InvalidProcessStatusTransition(uint8,uint8,string)',
+  'FunctionCallFailed()',
+];
+
+/**
  * Customized errors for BaseTraceContract
  */
 export const BASE_TRACE_ERRORS = [
@@ -116,4 +136,11 @@ export const BASE_TRACE_SELECTORS = calculateErrorSelectors(BASE_TRACE_ERRORS);
  */
 export const SCHEMA_REGISTRY_SELECTORS = calculateErrorSelectors(
   SCHEMA_REGISTRY_ERRORS,
+);
+
+/**
+ * Selectors pre-computed for ProcessRegistry
+ */
+export const PROCESS_REGISTRY_SELECTORS = calculateErrorSelectors(
+  PROCESS_REGISTRY_ERRORS,
 );

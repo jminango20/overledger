@@ -4,6 +4,7 @@ import {
   NotFoundException,
   Logger,
   UnauthorizedException,
+  ForbiddenException,
 } from '@nestjs/common';
 import {
   BASE_TRACE_SELECTORS,
@@ -11,6 +12,7 @@ import {
   ADDRESS_DISCOVERY_SELECTORS,
   ACCESS_CONTROL_SELECTORS,
   SCHEMA_REGISTRY_SELECTORS,
+  PROCESS_REGISTRY_SELECTORS,
 } from './error-selectors.utils';
 
 /**
@@ -193,7 +195,7 @@ export class ContractErrorHandler {
           SCHEMA_REGISTRY_SELECTORS['NotSchemaOwner(bytes32,bytes32,address)'],
         )
       ) {
-        return new UnauthorizedException(
+        return new ForbiddenException(
           'Apenas o proprietário do schema pode realizar esta operação',
         );
       }
@@ -203,9 +205,153 @@ export class ContractErrorHandler {
           SCHEMA_REGISTRY_SELECTORS['InvalidStatusTransition(uint8,uint8)'],
         )
       ) {
-        return new UnauthorizedException(
-          'Status inválido para essa transição de status',
+        return new ConflictException('Transição de status inválida');
+      }
+
+      return null;
+    } catch (parseError) {
+      this.logger.warn(
+        `Erro ao parsear SchemaRegistry error: ${parseError.message}`,
+      );
+      return null;
+    }
+  }
+
+  /**
+   * Error parser for ProcessRegistry
+   */
+  static parseProcessRegistryError(error: any): Error | null {
+    try {
+      const errorData = error.data;
+
+      if (!errorData || typeof errorData !== 'string') {
+        return null;
+      }
+
+      if (
+        errorData.startsWith(PROCESS_REGISTRY_SELECTORS['InvalidProcessId()'])
+      ) {
+        return new BadRequestException(
+          'ID do processo é obrigatório e deve ser válido',
         );
+      }
+
+      if (
+        errorData.startsWith(PROCESS_REGISTRY_SELECTORS['InvalidNatureId()'])
+      ) {
+        return new BadRequestException(
+          'ID da natureza é obrigatório e deve ser válido',
+        );
+      }
+
+      if (
+        errorData.startsWith(PROCESS_REGISTRY_SELECTORS['InvalidStageId()'])
+      ) {
+        return new BadRequestException(
+          'ID da etapa é obrigatório e deve ser válido',
+        );
+      }
+
+      if (
+        errorData.startsWith(
+          PROCESS_REGISTRY_SELECTORS[
+            'ProcessAlreadyExists(bytes32,bytes32,bytes32,bytes32)'
+          ],
+        )
+      ) {
+        return new ConflictException('Processo já existe no canal');
+      }
+
+      if (
+        errorData.startsWith(
+          PROCESS_REGISTRY_SELECTORS['ProcessNotFound(bytes32,bytes32)'],
+        )
+      ) {
+        return new NotFoundException(
+          'Processo não encontrado no canal especificado',
+        );
+      }
+
+      if (
+        errorData.startsWith(
+          PROCESS_REGISTRY_SELECTORS['ProcessAlreadyInactive(bytes32,bytes32)'],
+        )
+      ) {
+        return new ConflictException('Processo já está inativo');
+      }
+
+      if (
+        errorData.startsWith(
+          PROCESS_REGISTRY_SELECTORS[
+            'NotProcessOwner(bytes32,bytes32,address)'
+          ],
+        )
+      ) {
+        return new ForbiddenException(
+          'Apenas o proprietário do processo pode realizar esta operação',
+        );
+      }
+
+      if (
+        errorData.startsWith(
+          PROCESS_REGISTRY_SELECTORS['SchemasRequiredForAction(uint8)'],
+        )
+      ) {
+        return new BadRequestException(
+          'Necessário pelo menos uma schema para realizar esta ação',
+        );
+      }
+
+      if (
+        errorData.startsWith(
+          PROCESS_REGISTRY_SELECTORS['DuplicateSchemaInList(bytes32,uint256)'],
+        )
+      ) {
+        return new BadRequestException('Schema duplicado na lista de schemas');
+      }
+
+      if (
+        errorData.startsWith(
+          PROCESS_REGISTRY_SELECTORS[
+            'SchemaNotActiveInChannel(bytes32,bytes32,uint256)'
+          ],
+        )
+      ) {
+        return new BadRequestException('Schema não está ativo no canal');
+      }
+
+      if (
+        errorData.startsWith(
+          PROCESS_REGISTRY_SELECTORS[
+            'SchemaNotFoundInChannel(bytes32,bytes32,uint256)'
+          ],
+        )
+      ) {
+        return new NotFoundException(
+          'Schema não encontrado no canal especificado',
+        );
+      }
+
+      if (
+        errorData.startsWith(PROCESS_REGISTRY_SELECTORS['DescriptionTooLong()'])
+      ) {
+        return new BadRequestException('Descrição do processo é muito longa');
+      }
+
+      if (
+        errorData.startsWith(
+          PROCESS_REGISTRY_SELECTORS[
+            'InvalidProcessStatusTransition(uint8,uint8,string)'
+          ],
+        )
+      ) {
+        return new ConflictException('Transição de status inválida');
+      }
+
+      if (
+        errorData.startsWith(PROCESS_REGISTRY_SELECTORS['FunctionCallFailed()'])
+      ) {
+        return new BadRequestException('Falha ao chamar função no contrato');
       }
 
       return null;
@@ -462,6 +608,9 @@ export class ContractErrorHandler {
 
     const addressDiscoveryError = this.parseAddressDiscoveryError(error);
     if (addressDiscoveryError) return addressDiscoveryError;
+
+    const processRegistryError = this.parseProcessRegistryError(error);
+    if (processRegistryError) return processRegistryError;
 
     return null;
   }

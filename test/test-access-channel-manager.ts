@@ -81,7 +81,7 @@ async function testAccessChannelManager() {
       `${API_BASE_URL}/access-channel-manager/channels/checkMember`,
       {
         channelName: channelName,
-        memberAddress: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
+        addressMember: '0x70997970C51812dc3A010C7d01b50e0d17dc79C8',
       },
     );
     console.log('   É membro:', checkMember.data.isMember);

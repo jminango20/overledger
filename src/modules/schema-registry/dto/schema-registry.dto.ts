@@ -1,181 +1,15 @@
 import { ApiProperty } from '@nestjs/swagger';
+import { IsNumber, Min, IsIn } from 'class-validator';
 import {
-  IsString,
-  IsNotEmpty,
-  Length,
-  Matches,
-  IsOptional,
-  IsNumber,
-  Min,
-  IsEnum,
-  IsIn,
-} from 'class-validator';
-import { Transform } from 'class-transformer';
-
-// Constants for better maintainability
-const CHANNEL_NAME_REGEX = /^[a-zA-Z0-9_-]+$/;
-const CHANNEL_NAME_ERROR_MESSAGE =
-  'channelName deve conter apenas letras, números, underscore e hífen';
-const CHANNEL_NAME_MIN_LENGTH = 1;
-const CHANNEL_NAME_MAX_LENGTH = 50;
-
-const SCHEMA_ID_REGEX = /^[a-zA-Z0-9_-]+$/;
-const SCHEMA_ID_ERROR_MESSAGE =
-  'schemaId deve conter apenas letras, números, underscore e hífen';
-const SCHEMA_ID_MIN_LENGTH = 1;
-const SCHEMA_ID_MAX_LENGTH = 50;
-
-const SCHEMA_NAME_MIN_LENGTH = 1;
-const SCHEMA_NAME_MAX_LENGTH = 100;
-
-const DESCRIPTION_MAX_LENGTH = 255;
-
-const DATA_HASH_REGEX = /^0x[a-fA-F0-9]{64}$/;
-const DATA_HASH_ERROR_MESSAGE =
-  'dataHash deve ser um hash válido (0x + 64 caracteres hexadecimais)';
-
-// Validation decorators
-function ChannelNameValidation() {
-  return function (target: any, propertyKey: string) {
-    ApiProperty({
-      description: 'Nome do canal',
-      example: 'my-awesome-channel',
-      minLength: CHANNEL_NAME_MIN_LENGTH,
-      maxLength: CHANNEL_NAME_MAX_LENGTH,
-    })(target, propertyKey);
-
-    IsString()(target, propertyKey);
-    IsNotEmpty()(target, propertyKey);
-    Length(CHANNEL_NAME_MIN_LENGTH, CHANNEL_NAME_MAX_LENGTH)(
-      target,
-      propertyKey,
-    );
-    Matches(CHANNEL_NAME_REGEX, { message: CHANNEL_NAME_ERROR_MESSAGE })(
-      target,
-      propertyKey,
-    );
-  };
-}
-
-function SchemaIdValidation() {
-  return function (target: any, propertyKey: string) {
-    ApiProperty({
-      description: 'Identificador único do schema',
-      example: 'user-profile-schema',
-      minLength: SCHEMA_ID_MIN_LENGTH,
-      maxLength: SCHEMA_ID_MAX_LENGTH,
-    })(target, propertyKey);
-
-    IsString()(target, propertyKey);
-    IsNotEmpty()(target, propertyKey);
-    Length(SCHEMA_ID_MIN_LENGTH, SCHEMA_ID_MAX_LENGTH)(target, propertyKey);
-    Matches(SCHEMA_ID_REGEX, { message: SCHEMA_ID_ERROR_MESSAGE })(
-      target,
-      propertyKey,
-    );
-  };
-}
-
-function SchemaNameValidation() {
-  return function (target: any, propertyKey: string) {
-    ApiProperty({
-      description: 'Nome do schema',
-      example: 'User Profile Schema',
-      minLength: SCHEMA_NAME_MIN_LENGTH,
-      maxLength: SCHEMA_NAME_MAX_LENGTH,
-    })(target, propertyKey);
-
-    IsString()(target, propertyKey);
-    IsNotEmpty()(target, propertyKey);
-    Length(SCHEMA_NAME_MIN_LENGTH, SCHEMA_NAME_MAX_LENGTH)(target, propertyKey);
-  };
-}
-
-function DataHashValidation() {
-  return function (target: any, propertyKey: string) {
-    ApiProperty({
-      description: 'Hash dos dados do schema (keccak256 do JSON schema)',
-      example:
-        '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-    })(target, propertyKey);
-
-    IsString()(target, propertyKey);
-    IsNotEmpty()(target, propertyKey);
-    Matches(DATA_HASH_REGEX, { message: DATA_HASH_ERROR_MESSAGE })(
-      target,
-      propertyKey,
-    );
-  };
-}
-
-function DescriptionValidation() {
-  return function (target: any, propertyKey: string) {
-    ApiProperty({
-      description: 'Descrição do schema',
-      example: 'Schema para validação de perfis de usuário',
-      maxLength: DESCRIPTION_MAX_LENGTH,
-      required: false,
-    })(target, propertyKey);
-
-    IsString()(target, propertyKey);
-    IsOptional()(target, propertyKey);
-    Length(0, DESCRIPTION_MAX_LENGTH)(target, propertyKey);
-  };
-}
-
-function VersionValidation() {
-  return function (target: any, propertyKey: string) {
-    ApiProperty({
-      description: 'Versão do schema',
-      example: '1',
-      minimum: 1,
-      nullable: false,
-      required: true,
-      type: 'integer',
-    })(target, propertyKey);
-
-    IsNumber()(target, propertyKey);
-    Min(1)(target, propertyKey);
-  };
-}
-
-// Base response interface
-interface BaseTransactionResponse {
-  success: boolean;
-  transactionHash: string;
-  blockNumber?: number;
-  gasUsed?: string;
-}
-
-// Base response class
-abstract class BaseSchemaResponseDto implements BaseTransactionResponse {
-  @ApiProperty({
-    description: 'Se a operação foi bem-sucedida',
-    example: true,
-  })
-  success: boolean;
-
-  @ApiProperty({
-    description: 'Hash da transação',
-    example:
-      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
-  })
-  transactionHash: string;
-
-  @ApiProperty({
-    description: 'Número do bloco onde a transação foi minerada',
-    example: 18500000,
-    required: false,
-  })
-  blockNumber?: number;
-
-  @ApiProperty({
-    description: 'Gas usado na transação',
-    example: '21000',
-    required: false,
-  })
-  gasUsed?: string;
-}
+  ChannelNameValidation,
+  IdValidation,
+  NameValidation,
+  DataHashValidation,
+  DescriptionValidation,
+  VersionValidation,
+} from '@/common/decorators/validation.decorators';
+import { BaseEnumConverter } from '@/common/utils/enum-converter.base';
+import { BaseTransactionResponseDto } from '@/common/dto/base-response.dto';
 
 // Schema Status Enum
 export enum SchemaStatus {
@@ -191,42 +25,6 @@ export const SCHEMA_STATUS_STRINGS = [
   'INACTIVE',
 ] as const;
 export type SchemaStatusString = (typeof SCHEMA_STATUS_STRINGS)[number];
-
-// Utility class for status conversion
-export class SchemaStatusConverter {
-  static stringToEnum(statusString: string): SchemaStatus {
-    const upperStatus = statusString.toUpperCase();
-    switch (upperStatus) {
-      case 'ACTIVE':
-        return SchemaStatus.ACTIVE;
-      case 'DEPRECATED':
-        return SchemaStatus.DEPRECATED;
-      case 'INACTIVE':
-        return SchemaStatus.INACTIVE;
-      default:
-        throw new Error(`Invalid schema status: ${statusString}`);
-    }
-  }
-
-  static enumToString(status: SchemaStatus): string {
-    switch (status) {
-      case SchemaStatus.ACTIVE:
-        return 'ACTIVE';
-      case SchemaStatus.DEPRECATED:
-        return 'DEPRECATED';
-      case SchemaStatus.INACTIVE:
-        return 'INACTIVE';
-      default:
-        throw new Error(`Invalid schema status enum: ${status as string}`);
-    }
-  }
-
-  static isValidStatusString(status: string): boolean {
-    return SCHEMA_STATUS_STRINGS.includes(
-      status.toUpperCase() as SchemaStatusString,
-    );
-  }
-}
 
 function SchemaStatusValidation() {
   return function (target: any, propertyKey: string) {
@@ -249,10 +47,10 @@ function SchemaStatusValidation() {
 // =============================================================
 
 export class CreateSchemaDto {
-  @SchemaIdValidation()
+  @IdValidation('ID do schema', 'user-profile-schema')
   schemaId: string;
 
-  @SchemaNameValidation()
+  @NameValidation('Nome do schema')
   name: string;
 
   @DataHashValidation()
@@ -266,7 +64,7 @@ export class CreateSchemaDto {
 }
 
 export class UpdateSchemaDto {
-  @SchemaIdValidation()
+  @IdValidation('ID do schema', 'user-profile-schema')
   schemaId: string;
 
   @DataHashValidation()
@@ -280,7 +78,7 @@ export class UpdateSchemaDto {
 }
 
 export class DeprecateSchemaDto {
-  @SchemaIdValidation()
+  @IdValidation('ID do schema', 'user-profile-schema')
   schemaId: string;
 
   @ChannelNameValidation()
@@ -288,7 +86,7 @@ export class DeprecateSchemaDto {
 }
 
 export class InactivateSchemaDto {
-  @SchemaIdValidation()
+  @IdValidation('ID do schema', 'user-profile-schema')
   schemaId: string;
 
   @VersionValidation()
@@ -299,7 +97,7 @@ export class InactivateSchemaDto {
 }
 
 export class SetSchemaStatusDto {
-  @SchemaIdValidation()
+  @IdValidation('ID do schema', 'user-profile-schema')
   schemaId: string;
 
   @VersionValidation()
@@ -316,7 +114,7 @@ export class SetSchemaStatusDto {
 //                    RESPONSE DTOs
 // =============================================================
 
-export class CreateSchemaResponseDto extends BaseSchemaResponseDto {
+export class CreateSchemaResponseDto extends BaseTransactionResponseDto {
   @ApiProperty({
     description: 'ID do schema criado',
     example: 'user-profile-schema',
@@ -348,7 +146,7 @@ export class CreateSchemaResponseDto extends BaseSchemaResponseDto {
   owner: string;
 }
 
-export class UpdateSchemaResponseDto extends BaseSchemaResponseDto {
+export class UpdateSchemaResponseDto extends BaseTransactionResponseDto {
   @ApiProperty({
     description: 'ID do schema atualizado',
     example: 'user-profile-schema',
@@ -380,7 +178,7 @@ export class UpdateSchemaResponseDto extends BaseSchemaResponseDto {
   owner: string;
 }
 
-export class DeprecateSchemaResponseDto extends BaseSchemaResponseDto {
+export class DeprecateSchemaResponseDto extends BaseTransactionResponseDto {
   @ApiProperty({
     description: 'ID do schema depreciado',
     example: 'user-profile-schema',
@@ -406,7 +204,7 @@ export class DeprecateSchemaResponseDto extends BaseSchemaResponseDto {
   owner: string;
 }
 
-export class InactivateSchemaResponseDto extends BaseSchemaResponseDto {
+export class InactivateSchemaResponseDto extends BaseTransactionResponseDto {
   @ApiProperty({
     description: 'ID do schema inativo',
     example: 'user-profile-schema',
@@ -439,7 +237,7 @@ export class InactivateSchemaResponseDto extends BaseSchemaResponseDto {
   owner: string;
 }
 
-export class SetSchemaStatusResponseDto extends BaseSchemaResponseDto {
+export class SetSchemaStatusResponseDto extends BaseTransactionResponseDto {
   @ApiProperty({
     description: 'ID do schema cambiado de status',
     example: 'user-profile-schema',
@@ -522,7 +320,7 @@ export class SchemaDto {
     example: SchemaStatus.ACTIVE,
     enum: ['ACTIVE', 'DEPRECATED', 'INACTIVE'],
   })
-  statusName: string;
+  status: string;
 
   @ApiProperty({
     description: 'Timestamp de criação (Unix timestamp)',
@@ -593,7 +391,7 @@ export class SchemaInfoResponseDto {
 // =============================================================
 
 export class GetSchemaDto {
-  @SchemaIdValidation()
+  @IdValidation('ID do schema', 'user-profile-schema')
   schemaId: string;
 
   @ChannelNameValidation()
@@ -675,4 +473,57 @@ export interface SchemaUpdateInputContract {
   newDataHash: string; // Será convertido para bytes32
   channelName: string; // Será convertido para bytes32
   description: string;
+}
+
+export interface SchemaCreatedEventDto {
+  id: string;
+  name: string;
+  version: number;
+  owner: string;
+  channelName: string;
+  timestamp: number;
+}
+
+export interface SchemaUpdatedEventDto {
+  id: string;
+  previousVersion: number;
+  newVersion: number;
+  owner: string;
+  channelName: string;
+  timestamp: number;
+}
+
+export interface SchemaStatusChangedEventDto {
+  id: string;
+  version: number;
+  channelName: string;
+  oldStatus: SchemaStatus;
+  newStatus: SchemaStatus;
+  updatedBy: string;
+  timestamp: number;
+}
+
+export class SchemaStatusConverter extends BaseEnumConverter<
+  typeof SchemaStatus
+> {
+  private static _instance: SchemaStatusConverter;
+
+  constructor() {
+    super(SchemaStatus, 'schema status');
+  }
+
+  static getInstance(): SchemaStatusConverter {
+    if (!this._instance) {
+      this._instance = new SchemaStatusConverter();
+    }
+    return this._instance;
+  }
+
+  static stringToEnum(value: string): SchemaStatus {
+    return this.getInstance().stringToEnum(value);
+  }
+
+  static enumToString(enumValue: SchemaStatus): string {
+    return this.getInstance().enumToString(enumValue);
+  }
 }

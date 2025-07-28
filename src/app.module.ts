@@ -5,6 +5,7 @@ import { BlockchainModule } from './blockchain/blockchain.module';
 import { AddressDiscoveryModule } from './modules/address-discovery/address-discovery.module';
 import { AccessChannelModule } from './modules/access-channel/access-channel.module';
 import { SchemaRegistryModule } from './modules/schema-registry/schema-registry.module';
+import { ProcessRegistryModule } from './modules/process-registry/process-registry.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { SchemaRegistryModule } from './modules/schema-registry/schema-registry.
     AddressDiscoveryModule, // Nosso módulo principal
     AccessChannelModule, // Módulo de canais de acesso
     SchemaRegistryModule, // Módulo de registro de esquemas
+    ProcessRegistryModule, // Módulo de registro de processos
   ],
 })
 export class AppModule {}

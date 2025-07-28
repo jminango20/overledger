@@ -217,7 +217,7 @@ export class AccessChannelService {
     checkMemberDto: CheckMemberDto,
   ): Promise<MembershipCheckResponseDto> {
     this.logger.log(
-      `Verificando se ${checkMemberDto.memberAddress} é membro do canal ${checkMemberDto.channelName}`,
+      `Verificando se ${checkMemberDto.addressMember} é membro do canal ${checkMemberDto.channelName}`,
     );
 
     try {
@@ -231,13 +231,15 @@ export class AccessChannelService {
 
       const isMember = await contract.isChannelMember(
         channelNameBytes32,
-        checkMemberDto.memberAddress,
+        checkMemberDto.addressMember,
       );
 
       return {
+        success: true,
+        transactionHash: isMember.transactionHash,
         isMember,
         channelName: checkMemberDto.channelName,
-        memberAddress: checkMemberDto.memberAddress,
+        memberAddress: checkMemberDto.addressMember,
       };
     } catch (error) {
       this.logger.error(
@@ -420,6 +422,8 @@ export class AccessChannelService {
       const result = await contract.getChannelMemberCount(channelNameBytes32);
 
       return {
+        success: true,
+        transactionHash: result.transactionHash,
         channelName: channelNameDto.channelName,
         memberCount: Number(result),
       };
@@ -472,6 +476,8 @@ export class AccessChannelService {
       );
 
       return {
+        success: true,
+        transactionHash: result.transactionHash,
         members: result.members,
         totalMembers: Number(result.totalMembers),
         totalPages: Number(result.totalPages),

@@ -1,5 +1,9 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsString, IsNotEmpty, Matches, Length } from 'class-validator';
+import { IsString, IsNotEmpty, Length } from 'class-validator';
+import {
+  EthereumAddressValidation,
+  TransactionHashValidation,
+} from '@/common/dto/index';
 
 export class UpdateAddressDto {
   @ApiProperty({
@@ -8,20 +12,18 @@ export class UpdateAddressDto {
     minLength: 1,
     maxLength: 50,
   })
-  @IsString()
-  @IsNotEmpty()
-  @Length(1, 50)
+  @IsString({ message: 'O nome do contrato deve ser uma string' })
+  @IsNotEmpty({ message: 'O nome do contrato deve ser informado' })
+  @Length(1, 50, {
+    message: `O nome do contrato deve ter entre 1 e 50 caracteres`,
+  })
   contractName: string;
 
   @ApiProperty({
     description: 'Novo endereço do contrato (formato Ethereum)',
     example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
   })
-  @IsString()
-  @IsNotEmpty()
-  @Matches(/^0x[a-fA-F0-9]{40}$/, {
-    message: 'newAddress deve ser um endereço Ethereum válido',
-  })
+  @EthereumAddressValidation()
   newAddress: string;
 }
 
@@ -82,6 +84,7 @@ export class UpdateAddressResponseDto {
     example:
       '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
   })
+  @TransactionHashValidation()
   transactionHash: string;
 
   @ApiProperty({
