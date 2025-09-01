@@ -125,22 +125,6 @@
           "internalType": "bytes32",
           "name": "schemaId",
           "type": "bytes32"
-        }
-      ],
-      "name": "SchemaHasNoActiveVersion",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "bytes32",
-          "name": "channelName",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "schemaId",
-          "type": "bytes32"
         },
         {
           "internalType": "enum ISchemaRegistry.SchemaStatus",
@@ -149,27 +133,6 @@
         }
       ],
       "name": "SchemaNotActive",
-      "type": "error"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "bytes32",
-          "name": "channelName",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "schemaId",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "uint256",
-          "name": "version",
-          "type": "uint256"
-        }
-      ],
-      "name": "SchemaNotDeprecated",
       "type": "error"
     },
     {
@@ -219,7 +182,7 @@
           "type": "bytes32"
         },
         {
-          "indexed": true,
+          "indexed": false,
           "internalType": "string",
           "name": "name",
           "type": "string"
@@ -237,7 +200,7 @@
           "type": "address"
         },
         {
-          "indexed": false,
+          "indexed": true,
           "internalType": "bytes32",
           "name": "channelName",
           "type": "bytes32"
@@ -489,158 +452,6 @@
           "internalType": "bytes32",
           "name": "schemaId",
           "type": "bytes32"
-        }
-      ],
-      "name": "getLatestSchema",
-      "outputs": [
-        {
-          "components": [
-            {
-              "internalType": "bytes32",
-              "name": "id",
-              "type": "bytes32"
-            },
-            {
-              "internalType": "string",
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "internalType": "uint256",
-              "name": "version",
-              "type": "uint256"
-            },
-            {
-              "internalType": "bytes32",
-              "name": "dataHash",
-              "type": "bytes32"
-            },
-            {
-              "internalType": "address",
-              "name": "owner",
-              "type": "address"
-            },
-            {
-              "internalType": "bytes32",
-              "name": "channelName",
-              "type": "bytes32"
-            },
-            {
-              "internalType": "enum ISchemaRegistry.SchemaStatus",
-              "name": "status",
-              "type": "uint8"
-            },
-            {
-              "internalType": "uint256",
-              "name": "createdAt",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "updatedAt",
-              "type": "uint256"
-            },
-            {
-              "internalType": "string",
-              "name": "description",
-              "type": "string"
-            }
-          ],
-          "internalType": "struct ISchemaRegistry.Schema",
-          "name": "schema",
-          "type": "tuple"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "bytes32",
-          "name": "channelName",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "schemaId",
-          "type": "bytes32"
-        }
-      ],
-      "name": "getSchema",
-      "outputs": [
-        {
-          "components": [
-            {
-              "internalType": "bytes32",
-              "name": "id",
-              "type": "bytes32"
-            },
-            {
-              "internalType": "string",
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "internalType": "uint256",
-              "name": "version",
-              "type": "uint256"
-            },
-            {
-              "internalType": "bytes32",
-              "name": "dataHash",
-              "type": "bytes32"
-            },
-            {
-              "internalType": "address",
-              "name": "owner",
-              "type": "address"
-            },
-            {
-              "internalType": "bytes32",
-              "name": "channelName",
-              "type": "bytes32"
-            },
-            {
-              "internalType": "enum ISchemaRegistry.SchemaStatus",
-              "name": "status",
-              "type": "uint8"
-            },
-            {
-              "internalType": "uint256",
-              "name": "createdAt",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "updatedAt",
-              "type": "uint256"
-            },
-            {
-              "internalType": "string",
-              "name": "description",
-              "type": "string"
-            }
-          ],
-          "internalType": "struct ISchemaRegistry.Schema",
-          "name": "schema",
-          "type": "tuple"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "bytes32",
-          "name": "channelName",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "schemaId",
-          "type": "bytes32"
         },
         {
           "internalType": "uint256",
@@ -735,102 +546,6 @@
           "internalType": "uint256",
           "name": "activeVersion",
           "type": "uint256"
-        },
-        {
-          "internalType": "bool",
-          "name": "hasActiveVersion",
-          "type": "bool"
-        },
-        {
-          "internalType": "address",
-          "name": "owner",
-          "type": "address"
-        },
-        {
-          "internalType": "uint256",
-          "name": "totalVersions",
-          "type": "uint256"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "bytes32",
-          "name": "channelName",
-          "type": "bytes32"
-        },
-        {
-          "internalType": "bytes32",
-          "name": "schemaId",
-          "type": "bytes32"
-        }
-      ],
-      "name": "getSchemaVersions",
-      "outputs": [
-        {
-          "internalType": "uint256[]",
-          "name": "versions",
-          "type": "uint256[]"
-        },
-        {
-          "components": [
-            {
-              "internalType": "bytes32",
-              "name": "id",
-              "type": "bytes32"
-            },
-            {
-              "internalType": "string",
-              "name": "name",
-              "type": "string"
-            },
-            {
-              "internalType": "uint256",
-              "name": "version",
-              "type": "uint256"
-            },
-            {
-              "internalType": "bytes32",
-              "name": "dataHash",
-              "type": "bytes32"
-            },
-            {
-              "internalType": "address",
-              "name": "owner",
-              "type": "address"
-            },
-            {
-              "internalType": "bytes32",
-              "name": "channelName",
-              "type": "bytes32"
-            },
-            {
-              "internalType": "enum ISchemaRegistry.SchemaStatus",
-              "name": "status",
-              "type": "uint8"
-            },
-            {
-              "internalType": "uint256",
-              "name": "createdAt",
-              "type": "uint256"
-            },
-            {
-              "internalType": "uint256",
-              "name": "updatedAt",
-              "type": "uint256"
-            },
-            {
-              "internalType": "string",
-              "name": "description",
-              "type": "string"
-            }
-          ],
-          "internalType": "struct ISchemaRegistry.Schema[]",
-          "name": "schemas",
-          "type": "tuple[]"
         }
       ],
       "stateMutability": "view",

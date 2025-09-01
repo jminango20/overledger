@@ -77,23 +77,6 @@ export class AddressDiscoveryController {
   }
 
   /**
-   * Endpoint para listar todos os contratos
-   */
-  @Get('contracts')
-  @ApiOperation({
-    summary: 'Listar todos os contratos registrados',
-    description: 'Obtém lista de todos os contratos registrados no sistema',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Lista de contratos retornada com sucesso',
-    type: [ContractAddressResponseDto],
-  })
-  async getAllContracts(): Promise<ContractAddressResponseDto[]> {
-    return await this.addressDiscoveryService.getAllContracts();
-  }
-
-  /**
    * Endpoint para atualizar endereço de contrato
    */
   @Post('update')

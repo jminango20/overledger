@@ -5,7 +5,6 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
-import { PrismaService } from '@/prisma/prisma.service';
 import { ethers } from 'ethers';
 import {
   UpdateAddressDto,
@@ -19,10 +18,7 @@ import { BlockchainProvider } from '@/blockchain/providers/blockchain.provider';
 export class AddressDiscoveryService {
   private readonly logger = new Logger(AddressDiscoveryService.name);
 
-  constructor(
-    private readonly blockchainProvider: BlockchainProvider,
-    private readonly prismaService: PrismaService,
-  ) {}
+  constructor(private readonly blockchainProvider: BlockchainProvider) {}
 
   /**
    * Atualiza o endereço de um contrato na blockchain e salva no banco
@@ -74,22 +70,6 @@ export class AddressDiscoveryService {
       const receipt = await tx.wait();
       this.logger.log(`Transação confirmada no bloco: ${receipt?.blockNumber}`);
 
-      // Obter endereço da wallet que fez a transação
-      const signerAddress =
-        await this.blockchainProvider.getWalletAddress(privateKey);
-
-      // Salvar no banco de dados
-      await this.saveToDatabase(
-        updateDto.contractName,
-        contractNameBytes32,
-        oldAddress,
-        updateDto.newAddress,
-        tx.hash,
-        receipt?.blockNumber || 0,
-        receipt?.blockNumber ? new Date() : new Date(),
-        signerAddress,
-      );
-
       return {
         success: true,
         transactionHash: tx.hash,
@@ -116,7 +96,7 @@ export class AddressDiscoveryService {
   }
 
   /**
-   * Busca o endereço de um contrato (blockchain + banco como cache)
+   * Busca o endereço de um contrato  direto na blockchain
    */
   async getContractAddress(
     getDto: GetContractAddressDto,
@@ -125,17 +105,6 @@ export class AddressDiscoveryService {
     this.logger.log(`Buscando endereço do contrato: ${getDto.contractName}`);
 
     try {
-      // Primeiro tentar buscar no banco (cache)
-      const dbRecord = await this.prismaService.contractAddress.findUnique({
-        where: { contractName: getDto.contractName },
-        include: {
-          updates: {
-            orderBy: { createdAt: 'desc' },
-            take: 1,
-          },
-        },
-      });
-
       // Para leitura, podemos usar qualquer chave ou criar uma temporária
       if (!privateKey) {
         privateKey = ethers.Wallet.createRandom().privateKey;
@@ -155,11 +124,6 @@ export class AddressDiscoveryService {
       const isRegistered = await contract.isRegistered(contractNameBytes32);
 
       if (!isRegistered) {
-        if (dbRecord) {
-          this.logger.warn(
-            `Inconsistência detectada: ${getDto.contractName} existe no banco mas não na blockchain`,
-          );
-        }
         throw new NotFoundException(
           `Contrato ${getDto.contractName} não está registrado`,
         );
@@ -169,25 +133,10 @@ export class AddressDiscoveryService {
       const blockchainAddress =
         await contract.getContractAddress(contractNameBytes32);
 
-      // Verificar se há inconsistência entre banco e blockchain
-      if (dbRecord && dbRecord.address !== blockchainAddress) {
-        this.logger.warn(
-          `Inconsistência detectada: endereço no banco (${dbRecord.address}) diferente da blockchain (${blockchainAddress})`,
-        );
-
-        // Atualizar banco com o endereço da blockchain
-        await this.prismaService.contractAddress.update({
-          where: { id: dbRecord.id },
-          data: { address: blockchainAddress },
-        });
-      }
-
       return {
         contractName: getDto.contractName,
         address: blockchainAddress,
         isRegistered: true,
-        lastUpdated: dbRecord?.updatedAt,
-        updatedBy: dbRecord?.updates[0]?.updatedBy,
       };
     } catch (error) {
       if (error.code === 'CALL_EXCEPTION') {
@@ -250,75 +199,5 @@ export class AddressDiscoveryService {
         error: error.message,
       };
     }
-  }
-
-  /**
-   * Lista todos os contratos registrados (do banco de dados)
-   */
-  async getAllContracts(): Promise<ContractAddressResponseDto[]> {
-    const contracts = await this.prismaService.contractAddress.findMany({
-      where: { isActive: true },
-      include: {
-        updates: {
-          orderBy: { createdAt: 'desc' },
-          take: 1,
-        },
-      },
-      orderBy: { contractName: 'asc' },
-    });
-
-    return contracts.map((contract) => ({
-      contractName: contract.contractName,
-      address: contract.address,
-      isRegistered: true,
-      lastUpdated: contract.updatedAt,
-      updatedBy: contract.updates[0]?.updatedBy,
-    }));
-  }
-
-  /**
-   * Salva/atualiza informações no banco de dados
-   */
-  private async saveToDatabase(
-    contractName: string,
-    contractHash: string,
-    oldAddress: string | undefined,
-    newAddress: string,
-    transactionHash: string,
-    blockNumber: number,
-    blockTimestamp: Date,
-    updatedBy: string,
-  ): Promise<void> {
-    await this.prismaService.$transaction(async (prisma) => {
-      // Upsert do contrato
-      const contract = await prisma.contractAddress.upsert({
-        where: { contractName },
-        update: {
-          address: newAddress,
-          updatedAt: new Date(),
-        },
-        create: {
-          contractName,
-          contractHash,
-          address: newAddress,
-          isActive: true,
-        },
-      });
-
-      // Criar registro de atualização
-      await prisma.contractAddressUpdate.create({
-        data: {
-          contractId: contract.id,
-          oldAddress,
-          newAddress,
-          updatedBy,
-          transactionHash,
-          blockNumber: BigInt(blockNumber),
-          blockTimestamp,
-        },
-      });
-    });
-
-    this.logger.log(`Dados salvos no banco para o contrato: ${contractName}`);
   }
 }
