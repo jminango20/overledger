@@ -115,14 +115,6 @@ function ProcessStatusValidation() {
       ],
     })(target, propertyKey);
     Transform(({ value }) => {
-      // If it's already a valid enum number, return it
-      if (
-        typeof value === 'number' &&
-        Object.values(ProcessStatus).includes(value)
-      ) {
-        return value;
-      }
-
       // If it's a string, convert to enum
       if (typeof value === 'string') {
         const upperValue = value.toUpperCase();
@@ -131,17 +123,11 @@ function ProcessStatusValidation() {
           return ProcessStatus[upperValue as keyof typeof ProcessStatus];
         }
 
-        throw new Error(
-          `Invalid process status: ${value}. Must be one of: ${PROCESS_STATUS_STRINGS.join(', ')} or numeric value 0-1`,
-        );
+        return value;
       }
-
-      throw new Error(
-        `Process status must be a string (${PROCESS_STATUS_STRINGS.join(', ')}) or number (0-1)`,
-      );
     })(target, propertyKey);
     IsEnum(ProcessStatus, {
-      message: 'status deve ser um dos valores: ACTIVE, INACTIVE',
+      message: 'newStatus deve ser um dos valores: ACTIVE, INACTIVE',
     })(target, propertyKey);
   };
 }
@@ -411,6 +397,101 @@ export class ProcessValidationResponseDto {
     required: false,
   })
   reason?: string;
+}
+
+export class EnrichedSchemaDto {
+  @ApiProperty({
+    description: 'Schema ID (readable)',
+    example: 'user_profile',
+  })
+  schemaId: string;
+
+  @ApiProperty({
+    description: 'Schema ID em formato bytes32 (original desde a blockchain)',
+    example:
+      '0x59e2fef05379bb83185d29bfa2707770746c17e2dce542eefd19cd1289811f80',
+  })
+  schemaIdBytes32: string;
+
+  @ApiProperty({
+    description: 'Nome do schema',
+    example: 'User Profile Schema',
+  })
+  schemaName: string;
+
+  @ApiProperty({
+    description: 'Versão do schema',
+    example: 1,
+  })
+  version: number;
+}
+
+export class ProcessEnrichedDto {
+  @ApiProperty({
+    description: 'Process unique identifier',
+    example: 'coffee-process-1',
+  })
+  processId: string;
+
+  @ApiProperty({
+    description: 'Product nature identifier',
+    example: 'coffee-onboarding',
+  })
+  natureId: string;
+
+  @ApiProperty({
+    description: 'Operation stage identifier',
+    example: 'coffee-verification',
+  })
+  stageId: string;
+
+  @ApiProperty({
+    description: 'Associated schemas with readable names',
+    type: [EnrichedSchemaDto],
+  })
+  schemas: EnrichedSchemaDto[];
+
+  @ApiProperty({
+    description: 'Process action',
+    example: 'CREATE_ASSET',
+  })
+  action: string;
+
+  @ApiProperty({
+    description: 'Process description',
+    example: 'Descrição detalhada do item',
+  })
+  description: string;
+
+  @ApiProperty({
+    description: 'Process owner address',
+    example: '0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266',
+  })
+  owner: string;
+
+  @ApiProperty({
+    description: 'Channel name',
+    example: 'my-awesome-channel',
+  })
+  channelName: string;
+
+  @ApiProperty({
+    description: 'Process status',
+    example: 'ACTIVE',
+  })
+  status: string;
+
+  @ApiProperty({
+    description: 'Creation timestamp',
+    example: 1756755681,
+  })
+  createdAt: number;
+
+  @ApiProperty({
+    description: 'Last update timestamp',
+    example: 1756755764,
+  })
+  lastUpdated: number;
 }
 
 // =============================================================

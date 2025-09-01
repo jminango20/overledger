@@ -18,7 +18,7 @@ import {
   ProcessDto,
   GetProcessDto,
   ProcessValidationResponseDto,
-  ProcessStatus,
+  ProcessEnrichedDto,
 } from './dto/process-registry.dto';
 import { PrivateKey } from '@/common/decorators/wallet.decorator';
 import {
@@ -54,26 +54,6 @@ function ProcessParams() {
       name: 'stageId',
       description: 'ID do estágio do processo',
       example: 'coffee-verification',
-    })(target, propertyKey, descriptor);
-  };
-}
-
-function ProcessIdParams() {
-  return function (
-    target: any,
-    propertyKey: string,
-    descriptor: PropertyDescriptor,
-  ) {
-    ApiParam({
-      name: 'channelName',
-      description: 'Nome do canal',
-      example: 'my-awesome-channel',
-    })(target, propertyKey, descriptor);
-
-    ApiParam({
-      name: 'processId',
-      description: 'ID do processo',
-      example: 'coffee-process',
     })(target, propertyKey, descriptor);
   };
 }
@@ -198,7 +178,7 @@ export class ProcessRegistryController {
   @BlockchainQuery()
   @ApiOperation({
     summary: 'Obter detalhes do processo',
-    description: 'Retorna informações completas de um processo específico.',
+    description: 'Retorna informações completas de um processo específico. ',
   })
   @ApiResponse({
     status: 200,
@@ -221,70 +201,34 @@ export class ProcessRegistryController {
   }
 
   /**
-   * Get all processes with same processId (different nature/stage combinations)
+   * Get specific process details with readable schema names
    */
-  @Get('processes/:channelName/:processId')
-  @ProcessIdParams()
-  @BlockchainQuery()
-  @ApiOperation({
-    summary: 'Obter todos os processos por ID',
-    description:
-      'Retorna todos os processos que compartilham o mesmo processId mas têm diferentes combinações de natureId/stageId.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Processos retornados com sucesso',
-    type: [ProcessDto],
-  })
-  async getProcessesByProcessId(
-    @Param('channelName') channelName: string,
-    @Param('processId') processId: string,
-  ): Promise<ProcessDto[]> {
-    return await this.processRegistryService.getProcessesByProcessId(
-      processId,
-      channelName,
-    );
-  }
-
-  /**
-   * Check if process is active
-   */
-  @Get('processes/:channelName/:processId/:natureId/:stageId/active')
+  @Get('processes/:channelName/:processId/:natureId/:stageId/enriched')
   @ProcessParams()
   @BlockchainQuery()
   @ApiOperation({
-    summary: 'Verificar se processo está ativo',
-    description: 'Retorna true se o processo existe e está com status ACTIVE.',
+    summary: 'Obter detalhes do processo com nomes legíveis dos schemas',
+    description:
+      'Retorna informações completas de um processo específico com schemas enriquecidos do banco de dados.',
   })
   @ApiResponse({
     status: 200,
-    description: 'Status verificado com sucesso',
-    schema: {
-      type: 'object',
-      properties: {
-        isActive: {
-          type: 'boolean',
-          example: true,
-          description: 'Se o processo está ativo',
-        },
-      },
-    },
+    description: 'Processo enriquecido retornado com sucesso',
+    type: ProcessEnrichedDto,
   })
-  async isProcessActive(
+  async getProcessEnriched(
     @Param('channelName') channelName: string,
     @Param('processId') processId: string,
     @Param('natureId') natureId: string,
     @Param('stageId') stageId: string,
-  ): Promise<{ isActive: boolean }> {
+  ): Promise<ProcessEnrichedDto> {
     const getProcessDto: GetProcessDto = {
       channelName,
       processId,
       natureId,
       stageId,
     };
-    const isActive =
-      await this.processRegistryService.isProcessActive(getProcessDto);
-    return { isActive };
+    return await this.processRegistryService.getProcessEnriched(getProcessDto);
   }
 
   /**
@@ -318,56 +262,5 @@ export class ProcessRegistryController {
     return await this.processRegistryService.validateProcessForSubmission(
       getProcessDto,
     );
-  }
-
-  /**
-   * Get process status only
-   */
-  @Get('processes/:channelName/:processId/:natureId/:stageId/status')
-  @ProcessParams()
-  @BlockchainQuery()
-  @ApiOperation({
-    summary: 'Obter apenas o status do processo',
-    description:
-      'Retorna apenas o status atual do processo (ACTIVE/INACTIVE). Mais eficiente que buscar o processo completo.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Status retornado com sucesso',
-    schema: {
-      type: 'object',
-      properties: {
-        status: {
-          type: 'string',
-          enum: ['ACTIVE', 'INACTIVE'],
-          example: 'ACTIVE',
-          description: 'Status atual do processo',
-        },
-        statusCode: {
-          type: 'number',
-          example: 0,
-          description: 'Código numérico do status (0=ACTIVE, 1=INACTIVE)',
-        },
-      },
-    },
-  })
-  async getProcessStatus(
-    @Param('channelName') channelName: string,
-    @Param('processId') processId: string,
-    @Param('natureId') natureId: string,
-    @Param('stageId') stageId: string,
-  ): Promise<{ status: string; statusCode: number }> {
-    const getProcessDto: GetProcessDto = {
-      channelName,
-      processId,
-      natureId,
-      stageId,
-    };
-    const statusCode =
-      await this.processRegistryService.getProcessStatus(getProcessDto);
-    return {
-      status: ProcessStatus[statusCode],
-      statusCode: statusCode,
-    };
   }
 }

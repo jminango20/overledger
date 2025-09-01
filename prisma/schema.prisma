@@ -34,6 +34,30 @@ model SchemaMetadata {
   @@map("schema_metadata")
 }
 
+// =============================================================
+// PROCESS METADATA - Metadados mínimos dos processos
+// =============================================================
+
+// Metadados básicos dos processos criados (apenas informação auxiliar)
+model ProcessMetadata {
+  id                    String   @id @default(cuid())
+  processId             String   // "coffee_harvest" (legível)
+  processIdBytes32      String   // "0x636f666665..." (bytes32 para contrato)
+  natureId              String   // "arabica_beans" (legível)
+  natureIdBytes32       String   // "0x617261626963..." (bytes32 para contrato)
+  stageId               String   // "drying_stage" (legível)
+  stageIdBytes32        String   // "0x647279696e67..." (bytes32 para contrato)
+  channelName           String   // "coffee_channel"
+  channelNameBytes32    String   // "0x636f666665..." (bytes32 para contrato)
+  transactionHash       String   @unique // "0xabc..." (hash da tx de criação)
+  walletAddress         String   // Endereço que criou o processo
+  createdAt             DateTime @default(now())
+  
+  // Garantir unicidade por canal (mesmo que no contrato)
+  @@unique([processId, natureId, stageId, channelName])
+  @@map("process_metadata")
+}
+
 
 
 // Model para armazenar endereços de contratos registrados

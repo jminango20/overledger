@@ -16,8 +16,6 @@ import {
   SchemaInfoResponseDto,
   SchemaStatus,
   SchemaUpdateInputContract,
-  GetLatestSchemaResponseDto,
-  GetSchemaVersionsResponseDto,
   SetSchemaStatusDto,
   SetSchemaStatusResponseDto,
   SchemaStatusConverter,
@@ -27,7 +25,6 @@ import { ABIName } from '@/blockchain/abis';
 import { BaseContractService } from '@/blockchain/services/base-contract.service';
 import { SchemaEventParser } from './services/schema-event-parser.service';
 import { SchemaValidator } from './services/schema-validator.service';
-import { version } from 'os';
 import { ethers } from 'ethers';
 
 @Injectable()

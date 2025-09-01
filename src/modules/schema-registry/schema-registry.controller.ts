@@ -22,8 +22,6 @@ import {
   InactivateSchemaDto,
   InactivateSchemaResponseDto,
   GetSchemaByVersionDto,
-  GetLatestSchemaResponseDto,
-  GetSchemaVersionsResponseDto,
   SetSchemaStatusDto,
   SetSchemaStatusResponseDto,
 } from './dto/schema-registry.dto';
