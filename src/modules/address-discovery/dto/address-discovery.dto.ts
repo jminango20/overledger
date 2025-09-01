@@ -56,20 +56,6 @@ export class ContractAddressResponseDto {
     example: true,
   })
   isRegistered: boolean;
-
-  @ApiProperty({
-    description: 'Data da última atualização',
-    example: '2024-01-15T10:30:00Z',
-    required: false,
-  })
-  lastUpdated?: Date;
-
-  @ApiProperty({
-    description: 'Endereço de quem fez a última atualização',
-    example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
-    required: false,
-  })
-  updatedBy?: string;
 }
 
 export class UpdateAddressResponseDto {
