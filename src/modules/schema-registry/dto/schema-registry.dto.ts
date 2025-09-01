@@ -122,6 +122,13 @@ export class CreateSchemaResponseDto extends BaseTransactionResponseDto {
   schemaId: string;
 
   @ApiProperty({
+    description: 'ID do schema criado em bytes32',
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  schemaIdBytes32: string;
+
+  @ApiProperty({
     description: 'Nome do schema criado',
     example: 'User Profile Schema',
   })
@@ -140,6 +147,13 @@ export class CreateSchemaResponseDto extends BaseTransactionResponseDto {
   channelName: string;
 
   @ApiProperty({
+    description: 'Nome do canal onde o schema foi criado em bytes32',
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  channelNameBytes32: string;
+
+  @ApiProperty({
     description: 'Endereço do proprietário do schema',
     example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
   })
@@ -152,6 +166,13 @@ export class UpdateSchemaResponseDto extends BaseTransactionResponseDto {
     example: 'user-profile-schema',
   })
   schemaId: string;
+
+  @ApiProperty({
+    description: 'ID do schema atualizado em bytes32',
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  schemaIdBytes32: string;
 
   @ApiProperty({
     description: 'Versão anterior (que foi depreciada)',
@@ -172,6 +193,13 @@ export class UpdateSchemaResponseDto extends BaseTransactionResponseDto {
   channelName: string;
 
   @ApiProperty({
+    description: 'Nome do canal onde o schema foi atualizado em bytes32',
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  channelNameBytes32: string;
+
+  @ApiProperty({
     description: 'Endereço do proprietário do schema',
     example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
   })
@@ -186,16 +214,30 @@ export class DeprecateSchemaResponseDto extends BaseTransactionResponseDto {
   schemaId: string;
 
   @ApiProperty({
+    description: 'ID do schema depreciado em bytes32',
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  schemaIdBytes32: string;
+
+  @ApiProperty({
     description: 'Versão que foi depreciada',
     example: 2,
   })
   deprecatedVersion: number;
 
   @ApiProperty({
-    description: 'Nome do canal',
+    description: 'Nome do canal onde o schema foi depreciado',
     example: 'my-awesome-channel',
   })
   channelName: string;
+
+  @ApiProperty({
+    description: 'Nome do canal onde o schema foi depreciado em bytes32',
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  channelNameBytes32: string;
 
   @ApiProperty({
     description: 'Endereço do proprietário do schema',
@@ -210,6 +252,13 @@ export class InactivateSchemaResponseDto extends BaseTransactionResponseDto {
     example: 'user-profile-schema',
   })
   schemaId: string;
+
+  @ApiProperty({
+    description: 'ID do schema inativo em bytes32',
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  schemaIdBytes32: string;
 
   @ApiProperty({
     description: 'Versão que foi inativada',
@@ -231,6 +280,13 @@ export class InactivateSchemaResponseDto extends BaseTransactionResponseDto {
   channelName: string;
 
   @ApiProperty({
+    description: 'Nome do canal onde o schema foi inativado em bytes32',
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  channelNameBytes32: string;
+
+  @ApiProperty({
     description: 'Endereço do proprietário do schema',
     example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
   })
@@ -243,6 +299,13 @@ export class SetSchemaStatusResponseDto extends BaseTransactionResponseDto {
     example: 'user-profile-schema',
   })
   schemaId: string;
+
+  @ApiProperty({
+    description: 'ID do schema cambiado de status em bytes32',
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  schemaIdBytes32: string;
 
   @ApiProperty({
     description: 'Versão do schema cambiado de status',
@@ -271,6 +334,14 @@ export class SetSchemaStatusResponseDto extends BaseTransactionResponseDto {
   channelName: string;
 
   @ApiProperty({
+    description:
+      'Nome do canal onde o schema foi cambiado de status em bytes32',
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  channelNameBytes32: string;
+
+  @ApiProperty({
     description: 'Endereço do proprietário do schema',
     example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
   })
@@ -282,7 +353,14 @@ export class SchemaDto {
     description: 'ID do schema',
     example: 'user-profile-schema',
   })
-  id: string;
+  schemaId: string;
+
+  @ApiProperty({
+    description: 'ID do schema em bytes32',
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  schemaIdBytes32?: string;
 
   @ApiProperty({
     description: 'Nome do schema',
@@ -314,6 +392,13 @@ export class SchemaDto {
     example: 'my-awesome-channel',
   })
   channelName: string;
+
+  @ApiProperty({
+    description: 'Nome do canal onde o schema encontrado em bytes32',
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  channelNameBytes32: string;
 
   @ApiProperty({
     description: 'Status do schema',
@@ -350,10 +435,24 @@ export class SchemaInfoResponseDto {
   schemaId: string;
 
   @ApiProperty({
+    description: 'ID do schema em bytes32',
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  schemaIdBytes32?: string;
+
+  @ApiProperty({
     description: 'Nome do canal',
     example: 'my-awesome-channel',
   })
   channelName: string;
+
+  @ApiProperty({
+    description: 'Nome do canal onde o schema encontrado em bytes32',
+    example:
+      '0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef',
+  })
+  channelNameBytes32: string;
 
   @ApiProperty({
     description: 'Versão mais recente',
@@ -366,24 +465,6 @@ export class SchemaInfoResponseDto {
     example: 2,
   })
   activeVersion: number;
-
-  @ApiProperty({
-    description: 'Se existe uma versão ativa',
-    example: true,
-  })
-  hasActiveVersion: boolean;
-
-  @ApiProperty({
-    description: 'Proprietário do schema (da versão mais recente)',
-    example: '0x742d35Cc7cDBe532D0f9d7bcd67b9a42B4f3e56E',
-  })
-  owner: string;
-
-  @ApiProperty({
-    description: 'Total de versões do schema',
-    example: 3,
-  })
-  totalVersions: number;
 }
 
 // =============================================================
@@ -462,10 +543,10 @@ export class GetSchemaVersionsResponseDto extends GetSchemaDto {
 
 export interface SchemaInputContract {
   id: string; // Será convertido para bytes32
-  name: string;
-  dataHash: string; // Será convertido para bytes32
+  name?: string;
+  dataHash?: string; // Será convertido para bytes32
   channelName: string; // Será convertido para bytes32
-  description: string;
+  description?: string;
 }
 
 export interface SchemaUpdateInputContract {

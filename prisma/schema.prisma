@@ -13,40 +13,63 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Model para armazenar endereços de contratos registrados
-model ContractAddress {
-  id              String   @id @default(cuid())
-  contractName    String   @unique // Nome do contrato (ex: "ACCESS_CHANNEL_MANAGER")
-  contractHash    String   @unique // Hash bytes32 do nome do contrato
-  address         String   // Endereço atual do contrato
-  isActive        Boolean  @default(true)
+// =============================================================
+// SCHEMA METADATA - Metadados mínimos dos schemas
+// =============================================================
+
+// Metadados básicos dos schemas criados (apenas informação auxiliar)
+model SchemaMetadata {
+  id                  String   @id @default(cuid())
+  schemaId            String   // "user_profile" (legível)
+  schemaIdBytes32     String   // "0x75736572..." (bytes32 para contrato)
+  schemaName          String   // "User Profile Schema" (descritivo)
+  channelName         String   // "coffee_channel"
+  channelNameBytes32  String   // "coffee_channel"
+  transactionHash     String   @unique // "0xabc..." (hash da tx de criação)
+  walletAddress       String   // Endereço que criou o schema
+  createdAt           DateTime @default(now())
   
-  // Metadados
-  createdAt       DateTime @default(now())
-  updatedAt       DateTime @updatedAt
-  
-  // Relacionamentos
-  updates         ContractAddressUpdate[]
-  
-  @@map("contract_addresses")
+  // Garantir unicidade por canal (mesmo que no contrato)
+  @@unique([schemaId, channelName])
+  @@map("schema_metadata")
 }
 
-// Histórico de atualizações de endereços
-model ContractAddressUpdate {
-  id              String   @id @default(cuid())
-  contractId      String
-  oldAddress      String?  // Endereço anterior (null na primeira criação)
-  newAddress      String   // Novo endereço
-  updatedBy       String   // Endereço de quem fez a atualização
-  transactionHash String   @unique
-  blockNumber     BigInt
-  blockTimestamp  DateTime
+
+
+// Model para armazenar endereços de contratos registrados
+//model ContractAddress {
+//  id              String   @id @default(cuid())
+//  contractName    String   @unique // Nome do contrato (ex: "ACCESS_CHANNEL_MANAGER")
+//  contractHash    String   @unique // Hash bytes32 do nome do contrato
+//  address         String   // Endereço atual do contrato
+//  isActive        Boolean  @default(true)
   
   // Metadados
-  createdAt       DateTime @default(now())
+//  createdAt       DateTime @default(now())
+//  updatedAt       DateTime @updatedAt
   
   // Relacionamentos
-  contract        ContractAddress @relation(fields: [contractId], references: [id], onDelete: Cascade)
+//  updates         ContractAddressUpdate[]
   
-  @@map("contract_address_updates")
-}
+//  @@map("contract_addresses")
+//}
+
+// Histórico de atualizações de endereços
+//model ContractAddressUpdate {
+//  id              String   @id @default(cuid())
+//  contractId      String
+//  oldAddress      String?  // Endereço anterior (null na primeira criação)
+//  newAddress      String   // Novo endereço
+//  updatedBy       String   // Endereço de quem fez a atualização
+//  transactionHash String   @unique
+//  blockNumber     BigInt
+//  blockTimestamp  DateTime
+  
+  // Metadados
+//  createdAt       DateTime @default(now())
+  
+  // Relacionamentos
+//  contract        ContractAddress @relation(fields: [contractId], references: [id], onDelete: Cascade)
+  
+//  @@map("contract_address_updates")
+//}

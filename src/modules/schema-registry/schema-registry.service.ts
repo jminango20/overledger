@@ -1,20 +1,21 @@
 import { Injectable } from '@nestjs/common';
+import { PrismaService } from '@/prisma/prisma.service';
 import {
   CreateSchemaDto,
   CreateSchemaResponseDto,
-  DeprecateSchemaDto,
   UpdateSchemaDto,
-  InactivateSchemaDto,
-  SchemaDto,
-  SchemaInfoResponseDto,
-  GetSchemaDto,
-  SchemaInputContract,
-  SchemaStatus,
-  DeprecateSchemaResponseDto,
   UpdateSchemaResponseDto,
-  SchemaUpdateInputContract,
+  DeprecateSchemaDto,
+  DeprecateSchemaResponseDto,
+  InactivateSchemaDto,
   InactivateSchemaResponseDto,
+  GetSchemaDto,
   GetSchemaByVersionDto,
+  SchemaDto,
+  SchemaInputContract,
+  SchemaInfoResponseDto,
+  SchemaStatus,
+  SchemaUpdateInputContract,
   GetLatestSchemaResponseDto,
   GetSchemaVersionsResponseDto,
   SetSchemaStatusDto,
@@ -26,6 +27,8 @@ import { ABIName } from '@/blockchain/abis';
 import { BaseContractService } from '@/blockchain/services/base-contract.service';
 import { SchemaEventParser } from './services/schema-event-parser.service';
 import { SchemaValidator } from './services/schema-validator.service';
+import { version } from 'os';
+import { ethers } from 'ethers';
 
 @Injectable()
 export class SchemaRegistryService extends BaseContractService {
@@ -33,6 +36,7 @@ export class SchemaRegistryService extends BaseContractService {
 
   constructor(
     blockchainProvider: BlockchainProvider,
+    private readonly prismaService: PrismaService,
     private readonly eventParser: SchemaEventParser,
     private readonly validator: SchemaValidator,
   ) {
@@ -87,17 +91,56 @@ export class SchemaRegistryService extends BaseContractService {
         const tx = await contract.createSchema(schemaInput);
         return {
           tx,
-          additionalData: { dto: createDto },
+          additionalData: {
+            dto: createDto,
+            schemaIdBytes32: schemaInput.id,
+            channelNameBytes32: schemaInput.channelName,
+            walletAddress,
+            contract,
+          },
         };
       },
-      (tx, receipt, walletAddress, additionalData) => ({
-        ...this.buildTransactionResponse(tx, receipt),
-        schemaId: additionalData.dto.schemaId,
-        name: additionalData.dto.name,
-        version: this.eventParser.parseVersion(receipt, 'SchemaCreated') || 1,
-        channelName: additionalData.dto.channelName,
-        owner: walletAddress,
-      }),
+      (tx, receipt, walletAddress, additionalData) => {
+        const eventData = this.parseContractEvent<{
+          id: string;
+          name: string;
+          version: bigint;
+          owner: string;
+          channelName: string;
+          timestamp: bigint;
+        }>(receipt, 'SchemaCreated', additionalData.contract);
+
+        const responseData = {
+          schemaIdBytes32: eventData?.id || additionalData.schemaIdBytes32,
+          schemaName: eventData?.name || additionalData.dto.name,
+          version: eventData ? Number(eventData.version) : 1,
+          owner: eventData?.owner || walletAddress,
+          channelNameBytes32:
+            eventData?.channelName || additionalData.dto.channelName,
+        };
+
+        // Após confirmação na blockchain, salvar metadados no banco
+        this.saveSchemaMetadata({
+          schemaId: additionalData.dto.schemaId,
+          schemaIdBytes32: responseData.schemaIdBytes32,
+          schemaName: responseData.schemaName,
+          channelName: additionalData.dto.channelName,
+          channelNameBytes32: responseData.channelNameBytes32,
+          walletAddress: responseData.owner,
+          transactionHash: tx.hash,
+        });
+
+        return {
+          ...this.buildTransactionResponse(tx, receipt),
+          schemaId: additionalData.dto.schemaId,
+          schemaIdBytes32: responseData.schemaIdBytes32,
+          name: additionalData.dto.name,
+          version: responseData.version || 1,
+          channelName: additionalData.dto.channelName,
+          channelNameBytes32: responseData.channelNameBytes32,
+          owner: walletAddress,
+        };
+      },
     );
   }
 
@@ -124,22 +167,35 @@ export class SchemaRegistryService extends BaseContractService {
           channelName: deprecateDto.channelName,
         });
 
+        const schemaUpdate = {
+          schemaIdBytes32: this.toBytes32(deprecateDto.schemaId),
+          channelNameBytes32: this.toBytes32(deprecateDto.channelName),
+        };
+
         const tx = await contract.deprecateSchema(
-          this.toBytes32(deprecateDto.schemaId),
-          this.toBytes32(deprecateDto.channelName),
+          schemaUpdate.schemaIdBytes32,
+          schemaUpdate.channelNameBytes32,
         );
 
         return {
           tx,
-          additionalData: { dto: deprecateDto },
+          additionalData: {
+            dto: deprecateDto,
+            schemaIdBytes32: schemaUpdate.schemaIdBytes32,
+            channelNameBytes32: schemaUpdate.channelNameBytes32,
+            walletAddress,
+            contract,
+          },
         };
       },
       (tx, receipt, walletAddress, additionalData) => ({
         ...this.buildTransactionResponse(tx, receipt),
         schemaId: additionalData.dto.schemaId,
+        schemaIdBytes32: additionalData.schemaIdBytes32,
         deprecatedVersion:
           this.eventParser.parseVersion(receipt, 'SchemaStatusChanged') || 1,
         channelName: additionalData.dto.channelName,
+        channelNameBytes32: additionalData.channelNameBytes32,
         owner: walletAddress,
       }),
     );
@@ -183,17 +239,24 @@ export class SchemaRegistryService extends BaseContractService {
 
         return {
           tx,
-          additionalData: { dto: updateDto },
+          additionalData: {
+            dto: updateDto,
+            schemaIdBytes32: schemaUpdateInput.id,
+            channelNameBytes32: schemaUpdateInput.channelName,
+            walletAddress,
+          },
         };
       },
       (tx, receipt, walletAddress, additionalData) => ({
         ...this.buildTransactionResponse(tx, receipt),
         schemaId: additionalData.dto.schemaId,
+        schemaIdBytes32: additionalData.schemaIdBytes32,
         previousVersion:
           this.eventParser.parsePreviousVersion(receipt, 'SchemaUpdated') || 1,
         newVersion:
           this.eventParser.parseNewVersion(receipt, 'SchemaUpdated') || 2,
         channelName: additionalData.dto.channelName,
+        channelNameBytes32: additionalData.channelNameBytes32,
         owner: walletAddress,
       }),
     );
@@ -224,20 +287,31 @@ export class SchemaRegistryService extends BaseContractService {
           channelName: inactivateDto.channelName,
         });
 
+        const schemaInactivate = {
+          schemaIdBytes32: this.toBytes32(inactivateDto.schemaId),
+          channelNameBytes32: this.toBytes32(inactivateDto.channelName),
+        };
+
         const tx = await contract.inactivateSchema(
-          this.toBytes32(inactivateDto.schemaId),
+          schemaInactivate.schemaIdBytes32,
           inactivateDto.version,
-          this.toBytes32(inactivateDto.channelName),
+          schemaInactivate.channelNameBytes32,
         );
 
         return {
           tx,
-          additionalData: { dto: inactivateDto },
+          additionalData: {
+            dto: inactivateDto,
+            schemaIdBytes32: schemaInactivate.schemaIdBytes32,
+            channelNameBytes32: schemaInactivate.channelNameBytes32,
+            walletAddress,
+          },
         };
       },
       (tx, receipt, walletAddress, additionalData) => ({
         ...this.buildTransactionResponse(tx, receipt),
         schemaId: additionalData.dto.schemaId,
+        schemaIdBytes32: additionalData.schemaIdBytes32,
         inactivatedVersion: additionalData.dto.version,
         previousStatus: SchemaStatusConverter.enumToString(
           this.eventParser.parsePreviousStatus(
@@ -246,6 +320,7 @@ export class SchemaRegistryService extends BaseContractService {
           ) || SchemaStatus.ACTIVE,
         ),
         channelName: additionalData.dto.channelName,
+        channelNameBytes32: additionalData.channelNameBytes32,
         owner: walletAddress,
       }),
     );
@@ -281,21 +356,32 @@ export class SchemaRegistryService extends BaseContractService {
           statusEnum,
         });
 
+        const schemaSetStatus = {
+          schemaIdBytes32: this.toBytes32(setSchemaStatusDto.schemaId),
+          channelNameBytes32: this.toBytes32(setSchemaStatusDto.channelName),
+        };
+
         const tx = await contract.setSchemaStatus(
-          this.toBytes32(setSchemaStatusDto.schemaId),
+          schemaSetStatus.schemaIdBytes32,
           setSchemaStatusDto.version,
-          this.toBytes32(setSchemaStatusDto.channelName),
+          schemaSetStatus.channelNameBytes32,
           statusEnum,
         );
 
         return {
           tx,
-          additionalData: { dto: setSchemaStatusDto },
+          additionalData: {
+            dto: setSchemaStatusDto,
+            schemaIdBytes32: schemaSetStatus.schemaIdBytes32,
+            channelNameBytes32: schemaSetStatus.channelNameBytes32,
+            walletAddress,
+          },
         };
       },
       (tx, receipt, walletAddress, additionalData) => ({
         ...this.buildTransactionResponse(tx, receipt),
         schemaId: additionalData.dto.schemaId,
+        schemaIdBytes32: additionalData.schemaIdBytes32,
         inactivatedVersion: additionalData.dto.version,
         previousStatus: SchemaStatusConverter.enumToString(
           this.eventParser.parsePreviousStatus(
@@ -305,6 +391,7 @@ export class SchemaRegistryService extends BaseContractService {
         ),
         currentStatus: additionalData.dto.status,
         channelName: additionalData.dto.channelName,
+        channelNameBytes32: additionalData.channelNameBytes32,
         owner: walletAddress,
       }),
     );
@@ -321,9 +408,13 @@ export class SchemaRegistryService extends BaseContractService {
       getSchemaByVersionDto.schemaId,
       getSchemaByVersionDto.channelName,
       async (contract) => {
+        const getSchema = {
+          schemaIdBytes32: this.toBytes32(getSchemaByVersionDto.schemaId),
+          channelNameBytes32: this.toBytes32(getSchemaByVersionDto.channelName),
+        };
         const result = await contract.getSchemaByVersion(
-          this.toBytes32(getSchemaByVersionDto.channelName),
-          this.toBytes32(getSchemaByVersionDto.schemaId),
+          getSchema.channelNameBytes32,
+          getSchema.schemaIdBytes32,
           getSchemaByVersionDto.version,
         );
         return this.parseSchemaFromContract(
@@ -358,93 +449,6 @@ export class SchemaRegistryService extends BaseContractService {
   }
 
   /**
-   * Get latest schema
-   */
-  async getLatestSchema(
-    getSchemaDto: GetSchemaDto,
-  ): Promise<GetLatestSchemaResponseDto> {
-    return this.executeViewOperation(
-      'getLatestSchema',
-      getSchemaDto.schemaId,
-      getSchemaDto.channelName,
-      async (contract) => {
-        const channelNameBytes32 = this.toBytes32(getSchemaDto.channelName);
-        const schemaIdBytes32 = this.toBytes32(getSchemaDto.schemaId);
-
-        const result = await contract.getLatestSchema(
-          channelNameBytes32,
-          schemaIdBytes32,
-        );
-        const schema = this.parseSchemaFromContract(
-          result,
-          getSchemaDto.schemaId,
-          getSchemaDto.channelName,
-        );
-
-        // Verificar se esta é também a versão ativa
-        let isActiveVersion = false;
-        try {
-          const activeResult = await contract.getActiveSchema(
-            channelNameBytes32,
-            schemaIdBytes32,
-          );
-          const activeSchema = this.parseSchemaFromContract(activeResult);
-          isActiveVersion = schema.version === activeSchema.version;
-        } catch {
-          this.logger.debug('Não há versão ativa para este schema');
-        }
-
-        return { schema, isActiveVersion };
-      },
-    );
-  }
-
-  /**
-   * Get schema versions
-   */
-  async getSchemaVersions(
-    getSchemaDto: GetSchemaDto,
-  ): Promise<GetSchemaVersionsResponseDto> {
-    return this.executeViewOperation(
-      'getSchemaVersions',
-      getSchemaDto.schemaId,
-      getSchemaDto.channelName,
-      async (contract) => {
-        const channelNameBytes32 = this.toBytes32(getSchemaDto.channelName);
-        const schemaIdBytes32 = this.toBytes32(getSchemaDto.schemaId);
-
-        // Obter todas as versões
-        const result = await contract.getSchemaVersions(
-          channelNameBytes32,
-          schemaIdBytes32,
-        );
-        const versions: number[] = result.versions.map((v: any) => Number(v));
-        const schemas: SchemaDto[] = result.schemas.map((schema: any) =>
-          this.parseSchemaFromContract(schema),
-        );
-
-        // Obter informações adicionais do schema
-        const infoResult = await contract.getSchemaInfo(
-          channelNameBytes32,
-          schemaIdBytes32,
-        );
-        const activeVersion = Number(infoResult.activeVersion);
-        const latestVersion = Number(infoResult.latestVersion);
-
-        return {
-          schemaId: getSchemaDto.schemaId,
-          channelName: getSchemaDto.channelName,
-          versions,
-          schemas,
-          activeVersion,
-          latestVersion,
-          totalVersions: versions.length,
-        };
-      },
-    );
-  }
-
-  /**
    * Get schema info
    */
   async getSchemaInfo(
@@ -455,19 +459,22 @@ export class SchemaRegistryService extends BaseContractService {
       getSchemaDto.schemaId,
       getSchemaDto.channelName,
       async (contract) => {
+        const getSchema = {
+          schemaIdBytes32: this.toBytes32(getSchemaDto.schemaId),
+          channelNameBytes32: this.toBytes32(getSchemaDto.channelName),
+        };
         const result = await contract.getSchemaInfo(
-          this.toBytes32(getSchemaDto.channelName),
-          this.toBytes32(getSchemaDto.schemaId),
+          getSchema.channelNameBytes32,
+          getSchema.schemaIdBytes32,
         );
 
         return {
           schemaId: getSchemaDto.schemaId,
+          schemaIdBytes32: getSchema.schemaIdBytes32,
           channelName: getSchemaDto.channelName,
+          channelNameBytes32: getSchema.channelNameBytes32,
           latestVersion: Number(result.latestVersion),
           activeVersion: Number(result.activeVersion),
-          hasActiveVersion: result.hasActiveVersion,
-          owner: result.owner,
-          totalVersions: Number(result.totalVersions),
         };
       },
     );
@@ -484,16 +491,81 @@ export class SchemaRegistryService extends BaseContractService {
     const statusNumber = Number(contractResult.status) as SchemaStatus;
 
     return {
-      id: schemaId ?? this.fromBytes32(contractResult.id),
+      schemaId: schemaId ?? contractResult.id,
+      schemaIdBytes32: contractResult.id,
       name: contractResult.name,
       version: Number(contractResult.version),
       dataHash: contractResult.dataHash,
       owner: contractResult.owner,
-      channelName: channelName ?? this.fromBytes32(contractResult.channelName),
+      channelName: channelName ?? contractResult.channelName,
+      channelNameBytes32: contractResult.channelName,
       status: SchemaStatus[statusNumber],
       createdAt: Number(contractResult.createdAt),
       updatedAt: Number(contractResult.updatedAt),
       description: contractResult.description,
     };
+  }
+
+  /**
+   * Save schema metadata to database after blockchain confirmation
+   */
+  private async saveSchemaMetadata(data: {
+    schemaId: string;
+    schemaIdBytes32: string;
+    schemaName: string;
+    channelName: string;
+    channelNameBytes32: string;
+    transactionHash: string;
+    walletAddress: string;
+  }): Promise<void> {
+    try {
+      await this.prismaService.schemaMetadata.create({
+        data: {
+          schemaId: data.schemaId,
+          schemaIdBytes32: data.schemaIdBytes32,
+          schemaName: data.schemaName,
+          channelName: data.channelName,
+          channelNameBytes32: data.channelNameBytes32,
+          transactionHash: data.transactionHash,
+          walletAddress: data.walletAddress,
+        },
+      });
+
+      this.logger.log(
+        `Metadados salvos no banco para schema ${data.schemaId} no canal ${data.channelName}`,
+      );
+    } catch (error) {
+      this.logger.error(
+        `Erro ao salvar metadados do schema ${data.schemaId}: ${error.message}`,
+        error.stack,
+      );
+    }
+  }
+
+  /**
+   * Parse genérico de eventos da blockchain
+   */
+  private parseContractEvent<T>(
+    receipt: any,
+    eventName: string,
+    contract: ethers.Contract,
+  ): T | null {
+    try {
+      for (const log of receipt.logs || []) {
+        try {
+          const parsedLog = contract.interface.parseLog(log);
+
+          if (parsedLog?.name === eventName) {
+            return parsedLog.args as T;
+          }
+        } catch {
+          continue;
+        }
+      }
+      return null;
+    } catch (error) {
+      this.logger.warn(`Erro ao parsear evento ${eventName}: ${error.message}`);
+      return null;
+    }
   }
 }

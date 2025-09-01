@@ -203,33 +203,6 @@ export class SchemaRegistryController {
   }
 
   /**
-   * Get latest version schema
-   */
-  @Get('schemas/:channelName/:schemaId/latest')
-  @SchemaParams()
-  @BlockchainQuery()
-  @ApiOperation({
-    summary: 'Obter o schema mais recente',
-    description:
-      'Retorna a versão mais recente do schema (independente do status ativo/inativo).',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Schema mais recente retornado com sucesso',
-    type: SchemaDto,
-  })
-  async getLatestSchema(
-    @Param('channelName') channelName: string,
-    @Param('schemaId') schemaId: string,
-  ): Promise<GetLatestSchemaResponseDto> {
-    const getSchemaDto: GetSchemaDto = {
-      channelName,
-      schemaId,
-    };
-    return await this.schemaRegistryService.getLatestSchema(getSchemaDto);
-  }
-
-  /**
    * Get schema info
    */
   @Get('schemas/:channelName/:schemaId/info')
@@ -251,30 +224,6 @@ export class SchemaRegistryController {
   ): Promise<SchemaInfoResponseDto> {
     const getSchemaDto: GetSchemaDto = { channelName, schemaId };
     return await this.schemaRegistryService.getSchemaInfo(getSchemaDto);
-  }
-
-  /**
-   * Get all versions of a schema
-   */
-  @Get('schemas/:channelName/:schemaId/versions')
-  @SchemaParams()
-  @BlockchainQuery()
-  @ApiOperation({
-    summary: 'Obter todas as versões do schema',
-    description:
-      'Retorna todas as versões existentes de um schema com informações detalhadas.',
-  })
-  @ApiResponse({
-    status: 200,
-    description: 'Versões do schema retornadas com sucesso',
-    type: GetSchemaVersionsResponseDto,
-  })
-  async getSchemaVersions(
-    @Param('channelName') channelName: string,
-    @Param('schemaId') schemaId: string,
-  ): Promise<GetSchemaVersionsResponseDto> {
-    const getSchemaDto: GetSchemaDto = { channelName, schemaId };
-    return await this.schemaRegistryService.getSchemaVersions(getSchemaDto);
   }
 
   /**
